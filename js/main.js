@@ -1,260 +1,218 @@
-/* Arco the Dog — interactive landing */
-(function () {
-  "use strict";
+(() => {
+  const LAUNCH = Date.parse("2026-09-16T00:00:00Z");
+  const dog = document.getElementById("stickyDog");
+  const dogImg = document.getElementById("dogImg");
+  const progress = document.getElementById("scrollProgress");
+  const toast = document.getElementById("toast");
+  const muteBtn = document.getElementById("muteBtn");
+  const woofBtn = document.getElementById("woofBtn");
+  const poses = {
+    wave: "assets/arco-wave.png",
+    run: "assets/arco-run.png",
+    jump: "assets/arco-jump.png",
+  };
+  let muted = localStorage.getItem("arco-muted") !== "0";
+  let audioCtx = null;
+  let ambient = null;
 
-  const MAINNET_UTC = Date.UTC(2026, 8, 16, 0, 0, 0); // Sep 16, 2026 00:00:00Z
-  const CA_PLACEHOLDER = "TBA — Coming Sep 16, 2026";
-
-  /* ---------- helpers ---------- */
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-
-  function showToast(msg, ms = 1600) {
-    const el = $("#toast");
-    if (!el) return;
-    el.textContent = msg;
-    el.classList.add("show");
+  const showToast = (msg) => {
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.add("show");
     clearTimeout(showToast._t);
-    showToast._t = setTimeout(() => el.classList.remove("show"), ms);
-  }
+    showToast._t = setTimeout(() => toast.classList.remove("show"), 1600);
+  };
 
-  /* ---------- touch / cursor ---------- */
-  const isTouch =
-    matchMedia("(hover: none), (pointer: coarse)").matches ||
-    "ontouchstart" in window;
-  if (isTouch) document.body.classList.add("touch-device");
+  const ensureAudio = () => {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  };
 
-  /* ---------- nav ---------- */
-  const nav = $("#nav");
-  const navToggle = $("#navToggle");
-  const navLinks = $("#navLinks");
+  const setMuteUI = () => {
+    if (!muteBtn) return;
+    muteBtn.textContent = muted ? "🔇" : "🔊";
+    muteBtn.setAttribute("aria-pressed", muted ? "true" : "false");
+    localStorage.setItem("arco-muted", muted ? "1" : "0");
+  };
 
-  function onScrollNav() {
-    nav?.classList.toggle("scrolled", window.scrollY > 20);
-  }
-  window.addEventListener("scroll", onScrollNav, { passive: true });
-  onScrollNav();
+  const startAmbient = () => {
+    if (muted || ambient) return;
+    const ctx = ensureAudio();
+    const master = ctx.createGain();
+    master.gain.value = 0.03;
+    master.connect(ctx.destination);
+    const a = ctx.createOscillator();
+    const b = ctx.createOscillator();
+    a.type = "sine"; b.type = "triangle";
+    a.frequency.value = 86; b.frequency.value = 129;
+    a.connect(master); b.connect(master);
+    a.start(); b.start();
+    ambient = { a, b, master };
+  };
 
-  navToggle?.addEventListener("click", () => {
-    const open = navLinks.classList.toggle("open");
-    navToggle.classList.toggle("open", open);
-    navToggle.setAttribute("aria-expanded", String(open));
-  });
+  const stopAmbient = () => {
+    if (!ambient) return;
+    try { ambient.a.stop(); ambient.b.stop(); } catch (e) {}
+    ambient = null;
+  };
 
-  navLinks?.querySelectorAll("a").forEach((a) => {
-    a.addEventListener("click", () => {
-      navLinks.classList.remove("open");
-      navToggle?.classList.remove("open");
-      navToggle?.setAttribute("aria-expanded", "false");
-    });
-  });
-
-  /* ---------- countdown ---------- */
-  const cdDays = $("#cdDays");
-  const cdHours = $("#cdHours");
-  const cdMins = $("#cdMins");
-  const cdSecs = $("#cdSecs");
-
-  function pad(n) {
-    return String(Math.max(0, n)).padStart(2, "0");
-  }
-
-  function tickCountdown() {
-    const now = Date.now();
-    let diff = MAINNET_UTC - now;
-    if (diff <= 0) {
-      if (cdDays) cdDays.textContent = "00";
-      if (cdHours) cdHours.textContent = "00";
-      if (cdMins) cdMins.textContent = "00";
-      if (cdSecs) cdSecs.textContent = "00";
-      const target = $(".cd-target");
-      if (target) target.innerHTML = "<strong>🚀 Mainnet is LIVE — UTC</strong>";
-      return;
-    }
-    const days = Math.floor(diff / 86400000);
-    diff %= 86400000;
-    const hours = Math.floor(diff / 3600000);
-    diff %= 3600000;
-    const mins = Math.floor(diff / 60000);
-    diff %= 60000;
-    const secs = Math.floor(diff / 1000);
-    if (cdDays) cdDays.textContent = pad(days);
-    if (cdHours) cdHours.textContent = pad(hours);
-    if (cdMins) cdMins.textContent = pad(mins);
-    if (cdSecs) cdSecs.textContent = pad(secs);
-  }
-  tickCountdown();
-  setInterval(tickCountdown, 1000);
-
-  /* ---------- confetti ---------- */
-  const canvas = $("#confettiCanvas");
-  const ctx = canvas?.getContext("2d");
-  let confettiPieces = [];
-  let confettiRaf = null;
-
-  function resizeCanvas() {
+  const burst = () => {
+    const canvas = document.getElementById("confettiCanvas");
     if (!canvas) return;
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-  resizeCanvas();
-  window.addEventListener("resize", resizeCanvas);
-
-  function spawnConfetti(count = 120) {
-    if (!ctx) return;
-    const colors = ["#a78bfa", "#7c6cf6", "#7dd3fc", "#38bdf8", "#ffffff", "#312e81", "#f0abfc"];
-    for (let i = 0; i < count; i++) {
-      confettiPieces.push({
-        x: Math.random() * canvas.width,
-        y: -20 - Math.random() * 80,
-        w: 6 + Math.random() * 8,
-        h: 4 + Math.random() * 6,
-        vx: -3 + Math.random() * 6,
-        vy: 2 + Math.random() * 5,
-        rot: Math.random() * Math.PI,
-        vr: -0.2 + Math.random() * 0.4,
-        color: colors[(Math.random() * colors.length) | 0],
-        life: 1,
+    const ctx = canvas.getContext("2d");
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = innerWidth * dpr;
+    canvas.height = innerHeight * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const parts = Array.from({ length: 50 }, () => ({
+      x: innerWidth / 2, y: innerHeight * 0.55,
+      vx: (Math.random() - 0.5) * 14,
+      vy: -4 - Math.random() * 12,
+      life: 1,
+      c: ["#7b6cf6", "#ff6bcb", "#c4b5fd", "#fff"][(Math.random() * 4) | 0],
+      s: 3 + Math.random() * 5,
+    }));
+    let n = 0;
+    const tick = () => {
+      n++;
+      ctx.clearRect(0, 0, innerWidth, innerHeight);
+      parts.forEach((p) => {
+        p.vy += 0.28; p.x += p.vx; p.y += p.vy; p.life -= 0.018;
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.c;
+        ctx.fillRect(p.x, p.y, p.s, p.s);
       });
-    }
-    if (!confettiRaf) confettiRaf = requestAnimationFrame(drawConfetti);
-  }
+      if (n < 70) requestAnimationFrame(tick);
+      else ctx.clearRect(0, 0, innerWidth, innerHeight);
+    };
+    tick();
+  };
 
-  function drawConfetti() {
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    confettiPieces = confettiPieces.filter((p) => p.life > 0 && p.y < canvas.height + 40);
-    for (const p of confettiPieces) {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vy += 0.08;
-      p.rot += p.vr;
-      p.life -= 0.004;
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.rot);
-      ctx.globalAlpha = Math.max(0, p.life);
-      ctx.fillStyle = p.color;
-      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-      ctx.restore();
+  const woof = () => {
+    if (muted) { showToast("Unmute for WOOF"); return; }
+    const ctx = ensureAudio();
+    startAmbient();
+    const t0 = ctx.currentTime;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    const f = ctx.createBiquadFilter();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(190, t0);
+    o.frequency.exponentialRampToValueAtTime(68, t0 + 0.2);
+    f.type = "lowpass"; f.frequency.value = 900;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.32, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
+    o.connect(f); f.connect(g); g.connect(ctx.destination);
+    o.start(t0); o.stop(t0 + 0.3);
+    burst();
+    if (dog) {
+      dog.classList.add("pose-jump");
+      setTimeout(() => dog.classList.remove("pose-jump"), 700);
     }
-    if (confettiPieces.length) {
-      confettiRaf = requestAnimationFrame(drawConfetti);
-    } else {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      confettiRaf = null;
-    }
-  }
+    showToast("WOOF!");
+  };
 
-  /* ---------- dog click → WOOF ---------- */
-  const dogHit = $("#dogHit");
-  dogHit?.addEventListener("click", () => {
-    dogHit.classList.remove("bounce");
-    void dogHit.offsetWidth;
-    dogHit.classList.add("bounce");
-    showToast("WOOF 🐾");
-    spawnConfetti(140);
+  const setPose = (name) => {
+    if (!dog || !dogImg) return;
+    const src = poses[name] || poses.wave;
+    if (dogImg.getAttribute("src") !== src) {
+      dogImg.style.opacity = "0.45";
+      dogImg.setAttribute("src", src);
+      requestAnimationFrame(() => { dogImg.style.opacity = "1"; });
+    }
+    dog.classList.remove("pose-wave", "pose-run", "pose-jump");
+    dog.classList.add("pose-" + (name || "wave"));
+  };
+
+  const updateCountdown = () => {
+    const el = {
+      d: document.getElementById("cdDays"),
+      h: document.getElementById("cdHours"),
+      m: document.getElementById("cdMins"),
+      s: document.getElementById("cdSecs"),
+    };
+    if (!el.d) return;
+    let diff = Math.max(0, LAUNCH - Date.now());
+    const days = Math.floor(diff / 86400000); diff -= days * 86400000;
+    const hours = Math.floor(diff / 3600000); diff -= hours * 3600000;
+    const mins = Math.floor(diff / 60000); diff -= mins * 60000;
+    const secs = Math.floor(diff / 1000);
+    const pad = (n) => String(n).padStart(2, "0");
+    el.d.textContent = pad(days);
+    el.h.textContent = pad(hours);
+    el.m.textContent = pad(mins);
+    el.s.textContent = pad(secs);
+  };
+
+  const chapters = [...document.querySelectorAll(".chapter")];
+  const dots = [...document.querySelectorAll(".chapter-dots .dot")];
+
+  const onScroll = () => {
+    const max = document.documentElement.scrollHeight - innerHeight;
+    if (progress) progress.style.width = (max > 0 ? Math.min(100, (scrollY / max) * 100) : 0) + "%";
+    let active = chapters[0];
+    let best = Infinity;
+    chapters.forEach((sec) => {
+      const r = sec.getBoundingClientRect();
+      const dist = Math.abs(r.top + r.height * 0.2 - innerHeight * 0.35);
+      if (dist < best) { best = dist; active = sec; }
+      sec.querySelectorAll(".chapter-body p, .highlight-line, .chapter-title").forEach((el) => {
+        if (el.getBoundingClientRect().top < innerHeight * 0.85) el.classList.add("is-on");
+      });
+    });
+    if (active) {
+      setPose(active.dataset.pose || "wave");
+      dots.forEach((d) => d.classList.toggle("active", d.dataset.chapter === active.id));
+    }
+  };
+
+  muteBtn && muteBtn.addEventListener("click", () => {
+    muted = !muted;
+    setMuteUI();
+    if (muted) stopAmbient();
+    else { ensureAudio(); startAmbient(); showToast("Sound on"); }
   });
+  woofBtn && woofBtn.addEventListener("click", woof);
+  const launchWoof = document.getElementById("launchWoof");
+  launchWoof && launchWoof.addEventListener("click", woof);
 
-  /* ---------- paw / sparkle cursor trail ---------- */
-  const trail = $("#cursorTrail");
-  let lastTrail = 0;
-
-  if (!isTouch && trail) {
-    document.addEventListener(
-      "mousemove",
-      (e) => {
-        const now = performance.now();
-        if (now - lastTrail < 28) return;
-        lastTrail = now;
-        const dot = document.createElement("span");
-        const isPaw = Math.random() > 0.55;
-        dot.className = "trail-dot " + (isPaw ? "paw" : "spark");
-        if (isPaw) dot.textContent = "🐾";
-        dot.style.left = e.clientX + "px";
-        dot.style.top = e.clientY + "px";
-        trail.appendChild(dot);
-        setTimeout(() => dot.remove(), 700);
-      },
-      { passive: true }
-    );
-  }
-
-  /* ---------- scroll reveals ---------- */
-  const revealObs = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((en) => {
-        if (en.isIntersecting) {
-          en.target.classList.add("visible");
-          revealObs.unobserve(en.target);
-        }
-      });
-    },
-    { threshold: 0.12, rootMargin: "0px 0px -40px 0px" }
-  );
-  $$(".reveal").forEach((el) => revealObs.observe(el));
-
-  /* ---------- card tilt ---------- */
-  function attachTilt(el) {
-    const max = 10;
-    el.addEventListener("mousemove", (e) => {
-      const r = el.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width;
-      const y = (e.clientY - r.top) / r.height;
-      const rx = (0.5 - y) * max;
-      const ry = (x - 0.5) * max;
-      el.style.transform = `perspective(700px) rotateX(${rx}deg) rotateY(${ry}deg) scale3d(1.02,1.02,1.02)`;
-    });
-    el.addEventListener("mouseleave", () => {
-      el.style.transform = "";
-    });
-  }
-  if (!isTouch) $$(".tilt").forEach(attachTilt);
-
-  /* ---------- copy CA ---------- */
-  $("#copyCa")?.addEventListener("click", async () => {
-    const text = $("#caText")?.textContent?.trim() || CA_PLACEHOLDER;
+  const copyCa = document.getElementById("copyCa");
+  copyCa && copyCa.addEventListener("click", async () => {
+    const v = (document.getElementById("caText") || {}).textContent || "TBA";
     try {
-      await navigator.clipboard.writeText(text);
-      showToast("Copied! 📋");
-    } catch {
-      showToast(text.startsWith("TBA") ? "CA still TBA 🐾" : "Copy failed");
-    }
+      await navigator.clipboard.writeText(v.trim());
+      showToast(v.trim() === "TBA" ? "CA still TBA" : "Copied");
+    } catch (e) { showToast("Copy failed"); }
   });
 
-  /* ---------- secret: type ARCO ---------- */
-  let secretBuf = "";
-  const SECRET = "ARCO";
+  const initGsap = () => {
+    if (!window.gsap || !window.ScrollTrigger) return;
+    gsap.registerPlugin(ScrollTrigger);
+    gsap.utils.toArray(".chapter-title, .display").forEach((el) => {
+      gsap.from(el, {
+        scrollTrigger: { trigger: el, start: "top 80%" },
+        y: 36, opacity: 0, duration: 0.75, ease: "power3.out",
+      });
+    });
+    gsap.to(".promo-peek", { y: -24, scrollTrigger: { trigger: "#intro", scrub: true } });
+    gsap.to("#stickyDog", { y: -36, scrollTrigger: { scrub: 0.35, trigger: "body" } });
+  };
+
+  let buf = "";
   window.addEventListener("keydown", (e) => {
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    const key = e.key.length === 1 ? e.key.toUpperCase() : "";
-    if (!key) return;
-    secretBuf = (secretBuf + key).slice(-SECRET.length);
-    if (secretBuf === SECRET) {
-      secretBuf = "";
-      showToast("ARCO! 🚀💜", 2200);
-      spawnConfetti(220);
-    }
+    if (e.key.length !== 1) return;
+    buf = (buf + e.key.toUpperCase()).slice(-4);
+    if (buf === "ARCO") { muted = false; setMuteUI(); woof(); showToast("Good dog. $ARCO"); }
   });
 
-  /* ---------- cycle hero dog poses gently on idle ---------- */
-  const heroDog = $("#heroDog");
-  const poses = [
-    "assets/arco-run.png",
-    "assets/arco-jump.png",
-    "assets/arco-wave.png",
-  ];
-  let poseIdx = 0;
-  if (heroDog) {
-    setInterval(() => {
-      if (document.hidden) return;
-      poseIdx = (poseIdx + 1) % poses.length;
-      heroDog.style.opacity = "0.85";
-      setTimeout(() => {
-        heroDog.src = poses[poseIdx];
-        heroDog.style.opacity = "1";
-      }, 180);
-    }, 7000);
-    heroDog.style.transition = "opacity 0.18s ease";
-  }
+  setMuteUI();
+  updateCountdown();
+  setInterval(updateCountdown, 1000);
+  onScroll();
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onScroll);
+  window.addEventListener("load", initGsap);
+  if (document.readyState === "complete") initGsap();
 })();

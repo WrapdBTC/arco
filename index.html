@@ -3,320 +3,177 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Arco the Dog ($ARCO) — the curious, loyal mascot of Arc L1. Mainnet era begins September 16, 2026." />
+  <meta name="description" content="Arco the Dog ($ARCO) — scroll the story. Arc L1 mainnet era begins September 16, 2026." />
   <meta name="theme-color" content="#7B6CF6" />
-  <meta property="og:title" content="Arco the Dog | $ARCO on Arc" />
-  <meta property="og:description" content="Curious. Loyal. Always exploring. Join Arco as Arc public mainnet launches September 16, 2026." />
+  <meta property="og:title" content="Arco the Dog | $ARCO" />
+  <meta property="og:description" content="Curious. Loyal. Always exploring. A meme scroll story for Arc mainnet." />
   <meta property="og:image" content="assets/arco-promo.png" />
-  <title>Arco the Dog — $ARCO | Arc Chain</title>
+  <title>Arco the Dog — $ARCO | Scroll Story</title>
   <link rel="icon" type="image/png" href="assets/arco-logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <div class="cursor-trail" id="cursorTrail" aria-hidden="true"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <canvas id="confettiCanvas" aria-hidden="true"></canvas>
+  <div class="scroll-progress" aria-hidden="true"><div class="scroll-progress-bar" id="scrollProgress"></div></div>
 
-  <!-- NAV -->
-  <header class="nav" id="nav">
-    <a class="nav-brand" href="#hero">
-      <img src="assets/arco-logo.png" alt="Arco logo" width="44" height="44" />
-      <span>Arco <em>$ARCO</em></span>
+  <header class="hud" id="hud">
+    <a class="hud-brand" href="#intro">
+      <img src="assets/arco-logo.png" alt="Arco" width="36" height="36" />
+      <span>ARCO <em>$ARCO</em></span>
     </a>
-    <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false">
-      <span></span><span></span><span></span>
-    </button>
-    <nav class="nav-links" id="navLinks">
-      <a href="#about">About</a>
-      <a href="#tokenomics">Tokenomics</a>
-      <a href="#roadmap">Roadmap</a>
-      <a href="#gallery">Gallery</a>
-      <a href="#community">Community</a>
-      <a class="btn btn-sm btn-primary" href="#ca">Get $ARCO</a>
-    </nav>
+    <div class="hud-actions">
+      <button class="btn-woof" id="woofBtn" type="button" aria-label="WOOF">WOOF</button>
+      <button class="btn-mute" id="muteBtn" type="button" aria-label="Mute sound" aria-pressed="true">🔇</button>
+    </div>
   </header>
 
-  <!-- HERO -->
-  <section class="hero" id="hero">
-    <div class="hero-bg" aria-hidden="true">
-      <div class="float-cube c1"></div>
-      <div class="float-cube c2"></div>
-      <div class="float-cube c3"></div>
-      <div class="float-paw p1"></div>
-      <div class="float-paw p2"></div>
-      <div class="float-paw p3"></div>
-      <div class="sparkle s1"></div>
-      <div class="sparkle s2"></div>
-      <div class="sparkle s3"></div>
-      <div class="sparkle s4"></div>
+  <nav class="chapter-dots" id="chapterDots" aria-label="Chapters">
+    <a class="dot active" href="#intro" data-chapter="intro"><span>Intro</span></a>
+    <a class="dot" href="#origin" data-chapter="origin"><span>Origin</span></a>
+    <a class="dot" href="#arc" data-chapter="arc"><span>Arc</span></a>
+    <a class="dot" href="#launch" data-chapter="launch"><span>Launch</span></a>
+    <a class="dot" href="#end" data-chapter="end"><span>End</span></a>
+  </nav>
+
+  <div class="orbs" aria-hidden="true">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <span class="paw-float pf-1">🐾</span>
+    <span class="paw-float pf-2">🐾</span>
+    <span class="paw-float pf-3">✨</span>
+  </div>
+
+  <aside class="sticky-dog pose-wave" id="stickyDog" aria-hidden="true">
+    <div class="sticky-dog-inner">
+      <div class="dog-glow"></div>
+      <img id="dogImg" src="assets/arco-wave.png" alt="" />
     </div>
+  </aside>
 
-    <div class="hero-grid">
-      <div class="hero-copy reveal">
-        <div class="badge">Arc L1 · Public Mainnet</div>
-        <h1>Arco the Dog</h1>
-        <p class="tagline">Curious. Loyal. Always exploring.</p>
-        <p class="hero-sub">Arco is here. The mainnet era begins.</p>
-        <p class="hero-cta-line">Let's build the future—together.</p>
+  <!-- INTRO -->
+  <section class="chapter chapter-hero" id="intro" data-pose="wave">
+    <div class="hero-bg"></div>
+    <div class="hero-content">
+      <span class="eyebrow">Arc L1 · Public Mainnet</span>
+      <h1 class="display">
+        <span class="line">Arco</span>
+        <span class="line accent">the Dog</span>
+      </h1>
+      <p class="hero-lead">Curious. Loyal. Always exploring.<br/>Scroll the story. Pet the vibes. Howl at mainnet.</p>
+      <div class="hero-media">
+        <img class="promo-peek" src="assets/arco-promo.png" alt="Arco promo" />
+      </div>
+      <div class="scroll-cue">
+        <span>Scroll to begin</span>
+        <div class="scroll-cue-line"></div>
+      </div>
+    </div>
+  </section>
 
+  <!-- ORIGIN -->
+  <section class="chapter chapter-origin" id="origin" data-pose="run">
+    <div class="chapter-pin">
+      <div class="chapter-copy">
+        <span class="chapter-num">01 — ORIGIN</span>
+        <h2 class="chapter-title">Born to explore</h2>
+        <p class="chapter-kicker">A very good boy with a purple “A” tag and zero chill.</p>
+        <div class="chapter-body">
+          <p>Arco woke up in a lavender sky full of floating cubes and curiosity. One sniff of the chain and he knew: this pack needs a mascot who runs toward the unknown.</p>
+          <p>Not a brochure. Not a whitepaper. Just a meme dog who shows up when the blocks get interesting.</p>
+          <p class="highlight-line">Origin story energy: paws first, questions later.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARC -->
+  <section class="chapter chapter-arc" id="arc" data-pose="run">
+    <div class="chapter-pin">
+      <div class="chapter-copy">
+        <span class="chapter-num">02 — ARC</span>
+        <h2 class="chapter-title">The chain calls</h2>
+        <p class="chapter-kicker">Arc L1 — engineered for stablecoin finance. Arco — engineered for vibes.</p>
+        <div class="chapter-body">
+          <p><strong>Arc</strong> is Circle’s layer-1. Built for speed, settlement, and the next wave of onchain dollars.</p>
+          <p>Arco is the community’s playful face of that moment — cheering builders, barking at FUD, and sprinting toward public mainnet.</p>
+          <p class="highlight-line">Unofficial. Unhinged. Unreasonably cute.</p>
+        </div>
+        <ul class="arc-tags">
+          <li>Stablecoin L1</li>
+          <li>Community mascot</li>
+          <li>$ARCO</li>
+          <li>Mainnet howl</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- LAUNCH -->
+  <section class="chapter chapter-launch" id="launch" data-pose="jump">
+    <div class="chapter-pin">
+      <div class="chapter-copy">
+        <span class="chapter-num">03 — LAUNCH</span>
+        <h2 class="chapter-title">Mainnet howl</h2>
+        <p class="launch-date">Target: September 16, 2026 · 00:00 UTC</p>
         <div class="countdown" id="countdown" aria-label="Countdown to Arc public mainnet">
           <div class="cd-unit"><span class="cd-num" id="cdDays">00</span><span class="cd-label">Days</span></div>
           <div class="cd-unit"><span class="cd-num" id="cdHours">00</span><span class="cd-label">Hours</span></div>
           <div class="cd-unit"><span class="cd-num" id="cdMins">00</span><span class="cd-label">Mins</span></div>
           <div class="cd-unit"><span class="cd-num" id="cdSecs">00</span><span class="cd-label">Secs</span></div>
         </div>
-        <p class="cd-target">Launch target: <strong>Sep 16, 2026 · 00:00 UTC</strong></p>
-
-        <div class="hero-actions">
-          <a class="btn btn-primary" href="#ca">Buy $ARCO</a>
-          <a class="btn btn-ghost" href="#community">Join Pack</a>
+        <div class="chapter-body">
+          <p>When the clock hits zero, the pack howls. Contract drops. Memes fly. Arco jumps.</p>
+        </div>
+        <div class="ca-row">
+          <span class="ca-label">CA</span>
+          <code id="caText">TBA — Coming Sep 16, 2026</code>
+          <button class="btn-copy" id="copyCa" type="button">Copy</button>
+        </div>
+        <div class="launch-ctas">
+          <a class="btn btn-primary" href="#end">Join the Pack</a>
           <a class="btn btn-outline" href="https://www.arc.xyz/" target="_blank" rel="noopener noreferrer">Arc Network ↗</a>
-        </div>
-      </div>
-
-      <div class="hero-visual reveal">
-        <button class="dog-hitbox" id="dogHit" type="button" aria-label="Pet Arco — click for a surprise">
-          <img class="hero-dog" id="heroDog" src="assets/arco-run.png" alt="Arco the Dog running with floating cubes and paws" />
-          <span class="pet-hint">👆 Pet me!</span>
-        </button>
-      </div>
-    </div>
-  </section>
-
-  <!-- MARQUEE -->
-  <div class="marquee" aria-hidden="true">
-    <div class="marquee-track">
-      <span>$ARCO</span><span>✦</span>
-      <span>CURIOUS</span><span>✦</span>
-      <span>LOYAL</span><span>✦</span>
-      <span>ALWAYS EXPLORING</span><span>✦</span>
-      <span>ARC MAINNET</span><span>✦</span>
-      <span>SEP 16 2026</span><span>✦</span>
-      <span>WOOF WOOF</span><span>✦</span>
-      <span>BUILD TOGETHER</span><span>✦</span>
-      <span>$ARCO</span><span>✦</span>
-      <span>CURIOUS</span><span>✦</span>
-      <span>LOYAL</span><span>✦</span>
-      <span>ALWAYS EXPLORING</span><span>✦</span>
-      <span>ARC MAINNET</span><span>✦</span>
-      <span>SEP 16 2026</span><span>✦</span>
-      <span>WOOF WOOF</span><span>✦</span>
-      <span>BUILD TOGETHER</span><span>✦</span>
-    </div>
-  </div>
-
-  <!-- ABOUT -->
-  <section class="section about" id="about">
-    <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">Who's a good dog?</span>
-        <h2>Meet Arco</h2>
-        <p>The community mascot for the Arc era — a Pixar-cute explorer with a purple shield “A” tag, ready for mainnet.</p>
-      </div>
-      <div class="about-grid">
-        <article class="card tilt reveal">
-          <div class="card-icon">🔭</div>
-          <h3>Curious</h3>
-          <p>Always sniffing out new blocks, new builders, and the next big adventure on Arc L1.</p>
-        </article>
-        <article class="card tilt reveal">
-          <div class="card-icon">💜</div>
-          <h3>Loyal</h3>
-          <p>Sticks with the pack. Community-first memecoin energy for everyone building on Arc.</p>
-        </article>
-        <article class="card tilt reveal">
-          <div class="card-icon">🚀</div>
-          <h3>Exploring</h3>
-          <p>From lavender skies to sky-blue horizons — Arco leads the charge into public mainnet.</p>
-        </article>
-      </div>
-      <div class="about-banner reveal">
-        <img src="assets/arco-wave.png" alt="Arco waving hello" />
-        <div>
-          <h3>Arco is here. The mainnet era begins.</h3>
-          <p>Arc is Circle’s L1 — engineered for stablecoin finance. Arco is the community’s playful face of that moment: not an official Circle product, just a very good boy cheering the launch.</p>
+          <button class="btn btn-ghost" id="launchWoof" type="button">WOOF again</button>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- TOKENOMICS -->
-  <section class="section tokenomics" id="tokenomics">
-    <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">The treats</span>
-        <h2>Tokenomics</h2>
-        <p>Simple. Fair. Pack-approved. Placeholders until CA drops.</p>
+  <!-- END / PACK -->
+  <section class="chapter chapter-pack" id="end" data-pose="wave">
+    <div class="pack-inner">
+      <div class="section-head">
+        <span class="eyebrow">04 — THE PACK</span>
+        <h2>Stay loud</h2>
+        <p>Token treats, social dens, and Arco moments. Placeholders until CA lands — verify here first.</p>
       </div>
-      <div class="tok-grid">
-        <article class="tok-card tilt reveal">
-          <span class="tok-val">1B</span>
-          <span class="tok-label">Total Supply</span>
-          <p>One billion $ARCO — enough for every good boy and girl.</p>
-        </article>
-        <article class="tok-card tilt reveal">
-          <span class="tok-val">0%</span>
-          <span class="tok-label">Buy / Sell Tax</span>
-          <p>Zero tax. No tricks — just treats.</p>
-        </article>
-        <article class="tok-card tilt reveal">
-          <span class="tok-val">TBD</span>
-          <span class="tok-label">Liquidity Pool</span>
-          <p>LP details landing with CA. Stay tuned, explorers.</p>
-        </article>
-        <article class="tok-card tilt reveal">
-          <span class="tok-val">TBA</span>
-          <span class="tok-label">Contract</span>
-          <p>CA coming soon. Never ape a fake — verify here first.</p>
-        </article>
-      </div>
-    </div>
-  </section>
 
-  <!-- ROADMAP -->
-  <section class="section roadmap" id="roadmap">
-    <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">The path</span>
-        <h2>Roadmap</h2>
-        <p>From sniffing around to full mainnet sprint.</p>
+      <div class="tok-grid" style="margin-bottom:2rem">
+        <article class="tok-card"><span class="tok-val">1B</span><span class="tok-label">Supply</span></article>
+        <article class="tok-card"><span class="tok-val">0%</span><span class="tok-label">Tax</span></article>
+        <article class="tok-card"><span class="tok-val">TBD</span><span class="tok-label">LP</span></article>
+        <article class="tok-card"><span class="tok-val">TBA</span><span class="tok-label">CA</span></article>
       </div>
-      <ol class="timeline">
-        <li class="reveal">
-          <span class="tl-dot"></span>
-          <div class="tl-card tilt">
-            <span class="tl-phase">Phase 1</span>
-            <h3>Awaken</h3>
-            <p>Brand drop, site live, pack assembling. Socials online. Teasers &amp; Arco lore.</p>
-          </div>
-        </li>
-        <li class="reveal">
-          <span class="tl-dot"></span>
-          <div class="tl-card tilt">
-            <span class="tl-phase">Phase 2</span>
-            <h3>Mainnet Howl</h3>
-            <p><strong>Sep 16, 2026</strong> — Arc public mainnet. $ARCO CA reveal. Community launch energy.</p>
-          </div>
-        </li>
-        <li class="reveal">
-          <span class="tl-dot"></span>
-          <div class="tl-card tilt">
-            <span class="tl-phase">Phase 3</span>
-            <h3>Explore</h3>
-            <p>Memes, merch concepts, collabs, and more Arco adventures across Arc.</p>
-          </div>
-        </li>
-        <li class="reveal">
-          <span class="tl-dot"></span>
-          <div class="tl-card tilt">
-            <span class="tl-phase">Phase 4</span>
-            <h3>Build Together</h3>
-            <p>Community tools, partnerships, and keeping the pack loud as Arc grows.</p>
-          </div>
-        </li>
-      </ol>
-    </div>
-  </section>
 
-  <!-- GALLERY -->
-  <section class="section gallery" id="gallery">
-    <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">Good boy gallery</span>
-        <h2>Arco Moments</h2>
-        <p>Run. Jump. Wave. Promo. All the cute.</p>
+      <div class="comm-grid" style="margin-bottom:2rem">
+        <a class="comm-card" href="#" aria-disabled="true" onclick="return false;"><span class="comm-ico">𝕏</span><h3>Twitter / X</h3><p>@ArcoTheDog · TBA</p></a>
+        <a class="comm-card" href="#" aria-disabled="true" onclick="return false;"><span class="comm-ico">✈</span><h3>Telegram</h3><p>t.me/ArcoTheDog · TBA</p></a>
+        <a class="comm-card" href="#" aria-disabled="true" onclick="return false;"><span class="comm-ico">💬</span><h3>Discord</h3><p>discord.gg/arco · TBA</p></a>
+        <a class="comm-card" href="https://www.arc.xyz/" target="_blank" rel="noopener noreferrer"><span class="comm-ico">⛓</span><h3>Arc Network</h3><p>arc.xyz · Official L1</p></a>
       </div>
       <div class="gallery-grid">
-        <figure class="gal-item gal-wide reveal tilt">
-          <img src="assets/arco-promo.png" alt="Arco promo poster" loading="lazy" />
-          <figcaption>Promo Poster</figcaption>
-        </figure>
-        <figure class="gal-item reveal tilt">
-          <img src="assets/arco-run.png" alt="Arco running" loading="lazy" />
-          <figcaption>Sprint Mode</figcaption>
-        </figure>
-        <figure class="gal-item reveal tilt">
-          <img src="assets/arco-jump.png" alt="Arco jumping" loading="lazy" />
-          <figcaption>Moon Jump</figcaption>
-        </figure>
-        <figure class="gal-item reveal tilt">
-          <img src="assets/arco-wave.png" alt="Arco waving" loading="lazy" />
-          <figcaption>Say Hi</figcaption>
-        </figure>
-        <figure class="gal-item gal-video reveal tilt">
-          <video src="assets/arco.mp4" controls playsinline poster="assets/arco-logo.png" preload="metadata"></video>
-          <figcaption>Arco Reel</figcaption>
-        </figure>
-        <figure class="gal-item reveal tilt">
-          <img src="assets/arco-logo.png" alt="Arco circular logo" loading="lazy" />
-          <figcaption>Official Mark</figcaption>
-        </figure>
+        <figure class="gal-item gal-wide"><img src="assets/arco-promo.png" alt="Promo" loading="lazy" /></figure>
+        <figure class="gal-item"><img src="assets/arco-run.png" alt="Run" loading="lazy" /></figure>
+        <figure class="gal-item"><img src="assets/arco-jump.png" alt="Jump" loading="lazy" /></figure>
+        <figure class="gal-item"><img src="assets/arco-wave.png" alt="Wave" loading="lazy" /></figure>
+        <figure class="gal-item gal-video"><video src="assets/arco.mp4" controls playsinline poster="assets/arco-logo.png" preload="metadata"></video></figure>
+        <figure class="gal-item"><img src="assets/arco-logo.png" alt="Logo" loading="lazy" /></figure>
       </div>
-    </div>
-  </section>
 
-  <!-- COMMUNITY -->
-  <section class="section community" id="community">
-    <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">The pack</span>
-        <h2>Community</h2>
-        <p>Links go live with the launch. Bark loud — placeholders for now.</p>
-      </div>
-      <div class="comm-grid">
-        <a class="comm-card tilt reveal" href="#" aria-disabled="true" onclick="return false;">
-          <span class="comm-ico">𝕏</span>
-          <h3>Twitter / X</h3>
-          <p>@ArcoTheDog · TBA</p>
-        </a>
-        <a class="comm-card tilt reveal" href="#" aria-disabled="true" onclick="return false;">
-          <span class="comm-ico">✈</span>
-          <h3>Telegram</h3>
-          <p>t.me/ArcoTheDog · TBA</p>
-        </a>
-        <a class="comm-card tilt reveal" href="#" aria-disabled="true" onclick="return false;">
-          <span class="comm-ico">💬</span>
-          <h3>Discord</h3>
-          <p>discord.gg/arco · TBA</p>
-        </a>
-        <a class="comm-card tilt reveal" href="https://www.arc.xyz/" target="_blank" rel="noopener noreferrer">
-          <span class="comm-ico">⛓</span>
-          <h3>Arc Network</h3>
-          <p>arc.xyz · Official L1</p>
-        </a>
-      </div>
-    </div>
-  </section>
-
-  <!-- CA -->
-  <section class="section ca-section" id="ca">
-    <div class="container">
-      <div class="ca-box reveal">
-        <span class="eyebrow">Contract Address</span>
-        <h2>CA: TBA</h2>
-        <p>Official contract drops with Arc public mainnet energy. Copy when live — until then, stay safe.</p>
-        <div class="ca-row">
-          <code id="caText">TBA — Coming Sep 16, 2026</code>
-          <button class="btn btn-primary" id="copyCa" type="button">Copy</button>
-        </div>
-        <p class="ca-note">Always verify CA on this site before buying. Scammers hate good dogs.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- FOOTER -->
-  <footer class="footer">
-    <div class="container footer-inner">
-      <div class="footer-brand">
-        <img src="assets/arco-logo.png" alt="" width="48" height="48" />
-        <div>
-          <strong>Arco the Dog</strong>
-          <span>$ARCO on Arc</span>
-        </div>
-      </div>
       <p class="disclaimer">
         <strong>Disclaimer:</strong> Arco the Dog / $ARCO is a community-created memecoin mascot and is
         <em>not</em> an official product of Circle or the Arc Network. DYOR. NFA.
@@ -324,8 +181,10 @@
       </p>
       <p class="copy">© 2026 Arco the Dog · Built for the pack · Let's build the future—together.</p>
     </div>
-  </footer>
+  </section>
 
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
