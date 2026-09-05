@@ -28,7 +28,7 @@ const LAUNCH = {
   chain: 'Arc L1',
   contract: 'TBA',
   supply: '1,000,000,000',
-  tax: '0%',
+  tax: 'TBA',
   lp: 'TBA',
   nftSupply: '3,333',
   nftPrice: 'Free mint for $ARCO holders'

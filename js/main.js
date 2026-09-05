@@ -86,7 +86,17 @@
 
   /* ── 3. MODE SWITCH (Good Boy ⇄ Degen) ─────────────── */
   const modeBtn = $('#modeBtn'), modeLabel = $('#modeLabel');
+
+  // Night Arco (hoodie) is only fetched when it is actually needed, then idly
+  // pre-warmed after load so the first toggle does not flash.
+  function ensureNightDog() {
+    const n = $('#heroDogNight');
+    if (n && !n.getAttribute('src') && n.dataset.src) n.src = n.dataset.src;
+  }
+  window.addEventListener('load', () => setTimeout(ensureNightDog, 800));
+
   function setMode(m, announce) {
+    if (m === 'night') ensureNightDog();
     document.documentElement.classList.add('mode-anim');
     document.documentElement.dataset.mode = m;
     if (modeLabel) modeLabel.textContent = m === 'night' ? 'DEGEN' : 'GOOD BOY';
@@ -209,9 +219,6 @@
               '<img src="assets/nfts/' + id + '.jpg" alt="Arco NFT ' + id + '" loading="lazy" width="560" height="560">' +
               '</figure>';
     }
-    // two teaser slots — the collection is 3,333, this is a taste
-    html += '<figure class="pcard pcard--ph">3,325 more<br>after the token</figure>';
-    html += '<figure class="pcard pcard--ph">Free mint<br>for $ARCO holders</figure>';
     wall.innerHTML = html;
   })();
 
@@ -251,8 +258,8 @@
       queued = false;
       items.forEach(el => {
         const k = parseFloat(el.dataset.px) || 0;
-        const base = el.classList.contains('hero__dog') ? 'translateY(-50%) ' : '';
-        const isDog = el.classList.contains('hero__dog');
+        const isDog = el.classList.contains('hero__dogwrap');
+        const base = isDog ? 'translateY(-50%) ' : '';
         const tx = isDog ? mx * 26 : mx * 12;
         const ty = y * k + (isDog ? my * 18 : my * 8);
         el.style.transform = base + 'translate3d(' + tx.toFixed(2) + 'px,' + ty.toFixed(2) + 'px,0)' +
@@ -267,22 +274,26 @@
     req();
   })();
 
-  /* ── 10. FILM ──────────────────────────────────────── */
-  (function film() {
-    const v = $('#arcoVideo'), b = $('#filmPlay');
-    if (!v || !b) return;
-    b.addEventListener('click', () => {
-      v.preload = 'auto';
-      v.controls = true;            // only once it is actually playing
-      const p = v.play();
-      if (p && p.catch) p.catch(() => {});
-      b.classList.add('gone');
-    });
-    v.addEventListener('error', () => {
-      b.classList.add('gone');
-      v.closest('.filmwrap').innerHTML =
-        '<div class="ph ph--wide"><span>Arco film — assets/arco.mp4</span></div>';
-    });
+  /* ── 10. VIDEO (site film + NFT launch trailer) ────── */
+  (function video() {
+    function wire(vid, btn, phLabel, phClass) {
+      const v = $(vid), b = $(btn);
+      if (!v || !b) return;
+      b.addEventListener('click', () => {
+        v.preload = 'auto';
+        v.controls = true;                // only once it is actually playing
+        const p = v.play();
+        if (p && p.catch) p.catch(() => {});
+        b.classList.add('gone');
+      });
+      v.addEventListener('error', () => {
+        b.classList.add('gone');
+        const host = v.parentNode;
+        if (host) host.innerHTML = '<div class="ph ' + phClass + '"><span>' + phLabel + '</span></div>';
+      });
+    }
+    wire('#arcoVideo', '#filmPlay', 'Arco film — assets/arco.mp4', 'ph--wide');
+    wire('#nftVideo', '#nftPlay', 'NFT trailer — assets/nft-trailer.mp4', 'ph--square');
   })();
 
   /* ── 11. THE BALL (fetch easter egg) ───────────────── */

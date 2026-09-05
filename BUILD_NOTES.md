@@ -18,8 +18,15 @@ flip with the collar switch in the nav:
 |---|---|---|
 | Ground | warm cream | near-black violet |
 | Structure | 2.5px ink borders, hard offset shadows | 1px neon edges, glow |
+| Hero Arco | the plain good boy | **same leap pose, hoodie + shades + chain** |
 | Art | 3D puppy cutouts | degen PFPs |
 | Game palette | sun, pastel hills | crescent moon, stars, neon |
+
+The hero is **two cutouts of the identical leap pose** cross-fading on the mode
+switch (`arco-leap.png` / `arco-leap-night.png`). Their alpha bounds were
+measured and match within 1%, so nothing shifts during the fade. The night
+image is fetched lazily — day-mode visitors never download it, and it is
+pre-warmed 800ms after load so the first toggle does not flash.
 
 The switch persists in `localStorage`, retints the mini-game canvas live, and
 is **secretly unlocked** by playing: throw the ball five times and night mode
@@ -42,7 +49,7 @@ scroll-progress bar.
 4. **Five things about the dog** — draggable horizontal lore rail
 5. **Fetch Run** — the mini-game
 6. **The dog tags** — tokenomics
-7. **The night shift** — NFT teaser, 3,333 / free mint
+7. **The night shift** — NFT launch trailer + 3,333 / free mint + the 8-card wall
 8. **Film** — click-to-play video
 9. **Footer** — required disclaimer
 
@@ -115,7 +122,8 @@ For like/retweet, the `tweet_id` is the long number at the end of the tweet URL.
 
 ### `js/config.js` → `LAUNCH`
 `contract: 'TBA'` — set the real address and the CA card lights up with a
-working **Copy** button automatically. Also `lp`.
+working **Copy** button automatically. Also `lp` and `tax` (currently `TBA`;
+the Tax card text lives in `index.html`, so change it in both places).
 
 ### Wallet step
 Validates `^0x[a-fA-F0-9]{40}$` with specific error messages (wrong prefix vs.
@@ -130,17 +138,34 @@ later want a real snapshot endpoint, that is the one place to add a `fetch`.
 
 ### On disk and used
 ```
-assets/arco-leap.png              hero (800px RGBA cutout)
+assets/arco-leap.png              hero, day        (800px RGBA cutout)
+assets/arco-leap-night.png        hero, night      (hoodie Arco, same pose)
 assets/arco-logo.png              nav / favicon / footer
 assets/poses/run-01…09.png        full-res cutouts (source of truth)
 assets/sprites/*.png              320px downscales — game + fetch cameo
-assets/nfts/01…08.jpg             NFT wall
+assets/nfts/01…08.jpg             NFT wall (560px)
 assets/scenes/plate-day.jpg       hero parallax plate (no character, no text)
 assets/scenes/arco-wide.jpg       spare wide scene
-assets/video-poster.jpg           poster for arco.mp4
-assets/arco.mp4                   the film
+assets/arco.mp4  + video-poster.jpg      the site film   (3.1 MB)
+assets/nft-trailer.mp4 + nft-poster.jpg  NFT launch trailer (4.4 MB, 640×640, 10s)
 assets/posters/*.png              MARKETING ONLY — text baked in, never used as sprites
 ```
+
+### Video weight
+Both videos are `preload="none"` with a real poster frame, so a page load
+fetches **zero video bytes** — they download only when someone presses play.
+This was measured: `preload="metadata"` was not enough, the browser pulled the
+whole 4.5 MB anyway.
+
+The trailer source was 12.9 MB @ 960×960 (10 Mbps). It was re-encoded with
+macOS `avconvert -p Preset640x480` to 640×640 / 4.4 MB, and the poster frame
+pulled with `qlmanage -t`. If you install ffmpeg you can halve it again:
+
+```bash
+ffmpeg -i nft-trailer.mp4 -vf scale=640:640 -c:v libx264 -crf 28 \
+       -preset slow -movflags +faststart -an nft-trailer-small.mp4
+```
+(`-an` drops the audio track, which nothing on the page uses.)
 
 `arco-jump.png`, `arco-run.png`, `arco-wave.png`, `arco-promo.png` were moved
 into `assets/posters/` so nobody accidentally uses them as a moving sprite.
@@ -149,6 +174,12 @@ into `assets/posters/` so nobody accidentally uses them as a moving sprite.
 ### Not found on disk
 - `assets/memes/` — does not exist. The degen art is served by `assets/nfts/`,
   which covers the same ground. Nothing is broken by this.
+
+### Changed after the first build
+- The 8 NFTs were replaced with the newer set; the two "3,325 more" filler
+  cards are gone, so the wall is exactly the 8 real pieces.
+- **Tax now reads `TBA`**, not `0%` (`js/config.js` → `LAUNCH.tax`, and the
+  Tax card in `index.html`).
 
 ### What is missing / worth generating
 

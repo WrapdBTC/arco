@@ -3,7 +3,7 @@
 Landing site for **$ARCO**, a community memecoin and mascot inspired by **Arc L1**.
 
 - **Launch:** September 16, 2026 · 00:00 UTC
-- **Supply:** 1,000,000,000 · **Tax:** 0% · **LP:** TBA · **CA:** TBA
+- **Supply:** 1,000,000,000 · **Tax:** TBA · **LP:** TBA · **CA:** TBA
 - **NFTs (after the token):** 3,333 · free mint for $ARCO holders
 
 Static HTML / CSS / vanilla JS. No build step, no dependencies.
@@ -30,7 +30,7 @@ Then open <http://localhost:4173>.
 ## Before launch
 
 Fill in the `TBA` values in `js/config.js` — see **BUILD_NOTES.md §4**.
-Bump the `?v=claude1` cache-buster in `index.html` whenever you edit CSS or JS.
+Bump the `?v=claude4` cache-buster in `index.html` whenever you edit CSS or JS.
 
 ---
 

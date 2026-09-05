@@ -21,7 +21,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400;12..96,75..100,600;12..96,75..100,800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 
 <link rel="preload" as="image" href="assets/arco-leap.png">
-<link rel="stylesheet" href="css/style.css?v=claude1">
+<link rel="stylesheet" href="css/style.css?v=claude4">
 </head>
 <body>
 
@@ -96,7 +96,12 @@
       </span>
     </h1>
 
-    <img class="hero__dog" id="heroDog" src="assets/arco-leap.png" alt="Arco the dog mid-leap" width="800" height="800" data-px="-0.16">
+    <div class="hero__dogwrap" data-px="-0.16" aria-hidden="true">
+      <img class="hero__dog hero__dog--day" id="heroDog"
+           src="assets/arco-leap.png" alt="Arco the dog mid-leap" width="800" height="800">
+      <img class="hero__dog hero__dog--night" id="heroDogNight"
+           data-src="assets/arco-leap-night.png" alt="" width="800" height="800">
+    </div>
 
     <p class="hero__lede reveal">
       He is not a roadmap. He is not a protocol. He is a dog who started running
@@ -309,8 +314,8 @@
     </article>
     <article class="dtag reveal">
       <span class="dtag__k">Tax</span>
-      <b class="dtag__v">0%</b>
-      <span class="dtag__n">Buy, sell, do nothing. Same fee: none.</span>
+      <b class="dtag__v"><i>TBA</i></b>
+      <span class="dtag__n">Locked in and published at launch.</span>
     </article>
     <article class="dtag reveal">
       <span class="dtag__k">Liquidity</span>
@@ -346,14 +351,30 @@
     </p>
   </div>
 
-  <div class="packwall reveal" id="packWall"></div>
+  <div class="packlead reveal">
+    <figure class="trailer">
+      <video id="nftVideo" poster="assets/nft-poster.jpg" preload="none" playsinline muted loop>
+        <source src="assets/nft-trailer.mp4" type="video/mp4">
+      </video>
+      <button class="trailer__play" id="nftPlay" aria-label="Play the NFT launch trailer"></button>
+      <figcaption class="trailer__tag">Launch trailer</figcaption>
+    </figure>
 
-  <div class="packbar reveal">
-    <div class="packbar__i"><b>3,333</b><span>supply</span></div>
-    <div class="packbar__i"><b>FREE</b><span>for holders</span></div>
-    <div class="packbar__i"><b>AFTER</b><span>the token</span></div>
-    <a class="btn btn--primary" href="#loyalty">Get on the list</a>
+    <div class="packfacts">
+      <div class="packfacts__row">
+        <div class="packbar__i"><b>3,333</b><span>supply</span></div>
+        <div class="packbar__i"><b>FREE</b><span>for holders</span></div>
+        <div class="packbar__i"><b>AFTER</b><span>the token</span></div>
+      </div>
+      <p class="packfacts__note">
+        Same dog, different hours. The collection is the night shift version of
+        Arco — and if you are holding $ARCO when the snapshot happens, yours is free.
+      </p>
+      <a class="btn btn--primary" href="#loyalty">Get on the list <em>→</em></a>
+    </div>
   </div>
+
+  <div class="packwall reveal" id="packWall"></div>
 </section>
 
 <!-- ══ FILM ══ -->
@@ -400,9 +421,9 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="js/config.js?v=claude1"></script>
-<script src="js/main.js?v=claude1"></script>
-<script src="js/game.js?v=claude1"></script>
-<script src="js/pack.js?v=claude1"></script>
+<script src="js/config.js?v=claude4"></script>
+<script src="js/main.js?v=claude4"></script>
+<script src="js/game.js?v=claude4"></script>
+<script src="js/pack.js?v=claude4"></script>
 </body>
 </html>
