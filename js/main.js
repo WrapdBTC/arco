@@ -107,7 +107,7 @@
     setTimeout(() => document.documentElement.classList.remove('mode-anim'), 520);
     if (announce) toast(m === 'night' ? 'Night shift. The collar is off.' : 'Good boy mode restored.');
   }
-  setMode(store.get('mode', 'day'), false);
+  setMode(store.get('mode', 'night'), false);
   if (modeBtn) modeBtn.addEventListener('click', () =>
     setMode(document.documentElement.dataset.mode === 'night' ? 'day' : 'night', true));
 
@@ -150,7 +150,7 @@
     track.innerHTML = LORE.map(c =>
       '<article class="chapter' + (c.dark ? ' chapter--dark' : '') + '">' +
         '<div class="chapter__art">' +
-          '<img src="' + c.sprite + '" alt="Arco — ' + c.tag + '" loading="lazy" width="190" height="190">' +
+          '<img src="' + c.art + '" alt="Arco — ' + c.tag + '" loading="lazy" width="900" height="506">' +
           '<span class="chapter__stamp">' + c.stamp + '</span>' +
         '</div>' +
         '<div class="chapter__body">' +
@@ -302,24 +302,17 @@
     const btn = $('#ballBtn');
     if (!layer || !dog || !ball) return;
 
-    const RUN = ['assets/sprites/run-1.png', 'assets/sprites/run-2.png',
-                 'assets/sprites/run-3.png', 'assets/sprites/run-4.png'];
-    RUN.forEach(s => { const i = new Image(); i.src = s; });   // warm the cache
+    const RUN = [];
+    for (let i = 1; i <= 8; i++) RUN.push('assets/sprites/run-' + i + '.png');
+    const CATCH = 'assets/sprites/catch.png';
+    RUN.concat(CATCH).forEach(s => { const i = new Image(); i.src = s; });  // warm the cache
 
-    // Measured transparent padding per frame. Normalising against it keeps his
-    // feet on one line and his size constant instead of bobbing frame to frame.
-    const MET = [{ t: .184, b: .225 }, { t: .181, b: .228 },
-                 { t: .156, b: .181 }, { t: .206, b: .244 }];
-    const PARTY = { t: .056, b: .113 };
-    const VIS = .60;                                    // target visible height
-    const REF = MET[0];
-    const refK = VIS / (1 - REF.t - REF.b), refB = REF.b * refK;
-
-    function pose(m, size, x, bob) {
-      const k = VIS / (1 - m.t - m.b);
-      const off = (m.b * k - refB) * size;
-      return 'translate3d(' + x.toFixed(1) + 'px,' + (bob + off).toFixed(1) + 'px,0) scale(' +
-             (-k).toFixed(3) + ',' + k.toFixed(3) + ')';
+    // The v2 frames are pre-normalised: one shared scale, bbox-centred, and
+    // already facing right. So no per-frame metrics and no mirroring —
+    // just place them and let the art do the work.
+    function pose(x, bob, tilt) {
+      return 'translate3d(' + x.toFixed(1) + 'px,' + bob.toFixed(1) + 'px,0)' +
+             (tilt ? ' rotate(' + tilt.toFixed(2) + 'deg)' : '');
     }
 
     let busy = false;
@@ -358,8 +351,8 @@
 
       if (RM) {   // reduced motion: skip the physics, just celebrate
         ball.classList.remove('live');
-        dog.src = 'assets/sprites/party.png';
-        dog.style.transform = pose(PARTY, dogW, W * .5 - dogW / 2, 0);
+        dog.src = CATCH;
+        dog.style.transform = pose(W * .5 - dogW / 2, 0, 0);
         confettiAt(W * .5);
         done(1200);
         return;
@@ -387,15 +380,17 @@
         if (!caught) {
           dx += speed * dt;
           ft += dt;
-          const nf = Math.floor(ft / 5) % RUN.length;
+          const nf = Math.floor(ft / 3.4) % RUN.length;
           if (nf !== frame) { frame = nf; dog.src = RUN[frame]; }
-          const bob = Math.sin(ft * .38) * 6;
-          dog.style.transform = pose(MET[frame], dogW, dx, bob);
+          // a gallop bounces; two sine terms keep it from looking metronomic
+          const bob  = Math.sin(ft * .46) * 5 + Math.sin(ft * .23) * 2;
+          const tilt = Math.sin(ft * .46) * 2.4;
+          dog.style.transform = pose(dx, bob, tilt);
           if (dx + dogW * .78 >= bx) {
             caught = true;
             ball.classList.remove('live');
-            dog.src = 'assets/sprites/party.png';
-            dog.style.transform = pose(PARTY, dogW, dx, 0);
+            dog.src = CATCH;
+            dog.style.transform = pose(dx, -6, 0);
             confettiAt(dx + dogW / 2);
             registerFetch();
           }
@@ -405,9 +400,10 @@
         } else {
           dx += speed * 1.15 * dt;
           ft += dt;
-          const nf2 = Math.floor(ft / 5) % RUN.length;
+          const nf2 = Math.floor(ft / 3.4) % RUN.length;
           if (nf2 !== frame) { frame = nf2; dog.src = RUN[frame]; }
-          dog.style.transform = pose(MET[frame], dogW, dx, Math.sin(ft * .38) * 6);
+          dog.style.transform = pose(dx, Math.sin(ft * .46) * 5 + Math.sin(ft * .23) * 2,
+                                     Math.sin(ft * .46) * 2.4);
           if (dx > W + 40) { cancelAnimationFrame(raf); done(0); return; }
         }
         raf = requestAnimationFrame(loop);

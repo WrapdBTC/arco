@@ -38,6 +38,8 @@ rail you drag sideways, the endless runner, the dog that sprints across the
 bottom of your screen. Vertical scrolling is just how you get between the
 things that run.
 
+**Night is the default mode.** Day is the toggle.
+
 **Deliberately *not* doing** what the previous version did: no sticky
 scroll-scrubbed dog, no pinned chapter sections, no floating orbs, no top
 scroll-progress bar.
@@ -59,15 +61,24 @@ scroll-progress bar.
 
 | | |
 |---|---|
-| **Jump** | `Space` or `↑` or tap the canvas |
+| **Jump** | `Space` or `↑` or tap the canvas — **hold for a higher jump** |
 | **Double jump** | press again while airborne (two jumps max) |
 | **Start / restart** | the on-canvas button, or `Space` while the game is in view |
+
+The jump has the three things that make a runner feel fair rather than fussy:
+**variable height** (release early for a short hop), **coyote time** (~7 frames
+of grace after leaving the ground) and **input buffering** (~8 frames, so a
+slightly early press still fires on landing).
 
 - **Jump** the red candles and the fire hydrants. **Dodge** the rug (it is a rug. it rugs you).
 - **Collect** tennis balls: +5 each.
 - Score also ticks up with distance; speed ramps from 7.2 to 15.5.
 - Best score persists in `localStorage`.
+- Balls have a **magnet radius** and a **combo multiplier** — consecutive
+  catches score up to 5× and show a floating `+n` and an `x5` badge.
 - **Beat 600** and the bonus step in the Good Boy Program ticks itself.
+- While nobody is playing, the idle screen runs an **attract mode**: he keeps
+  trotting behind the start card instead of sitting on a frozen frame.
 
 `Space` is only intercepted when the game is actually on screen, so the key
 still scrolls the page everywhere else.
@@ -81,14 +92,34 @@ Five throws unlocks Degen mode. Ten gets a different message.
 
 ## 3. Things worth knowing about the code
 
-- **Sprite metrics are measured, not guessed.** The nine pose PNGs have
-  different amounts of transparent padding (18%–24% below the dog) and
-  different apparent sizes. Both `js/game.js` and `js/main.js` carry a `MET`
-  table of the real alpha bounds so every frame plants on the same ground line
-  at the same size. Without it the run cycle visibly bobs and resizes.
-- **The cutouts face left.** The runner moves right, so sprites are mirrored
-  (`ctx.scale(-1,1)` in the game, `scale(-k,k)` in the fetch cameo). If you
-  replace a sprite, keep it facing left or flip the sign.
+- **The sprites are normalised at build time, not at runtime.** The v2 art
+  arrived as JPGs on white, at inconsistent framing. `tools/arcokey.swift`
+  keys them to real alpha and renders every frame at one shared scale, bbox
+  centred. So the drawing code has no per-frame metric table any more — it just
+  places them. `FOOT = 0.219` in `js/game.js` is the median gap from a frame's
+  bottom edge to his paws; anchoring on it turns the gallop's natural bounce
+  into motion rather than jitter.
+- **The v2 cutouts face right**, which is the direction he runs, so there is no
+  mirroring anywhere. If you swap in art that faces left you have to flip it.
+- **The cycle order was measured, not eyeballed.** The clean gallop frames were
+  compared by mean alpha difference and ordered as a minimal-cost cycle (greedy
+  + 2-opt): `1,8,15,3,11,6,13,2`, saved as `sprites/run-1…8.png`.
+  Frames 5 and 9 are excluded — both keep a ground-shadow blob that no colour
+  threshold can remove (5's shadow is too dark to read as background; 9's is
+  white but *enclosed* by the dog, so a border-seeded fill cannot reach it).
+  Frames 7 and 12 are excluded because they are a trot, not a gallop.
+
+### The keying threshold matters more than it looks
+His **white paws are literally `255,255,255`** — the same value as the
+background. Nothing separates them but the dark outline around them, so the
+flood fill only works while that outline stays intact. A loose threshold
+(`196/26`) leaks straight through the soft anti-aliased outline and eats the
+paws, leaving just the dark rim, which renders as black claws and spikes on a
+dark background. **Use `ARCOKEY_MIN=244 ARCOKEY_TOL=8`.** Tighter (`250/6`)
+starts leaving a white halo; looser starts eating him.
+
+After keying, only the **largest connected blob** is kept, which drops detached
+ground shadows and speckles without touching the dog.
 - **Everything is delta-timed.** Both animation loops normalise to 60fps. This
   was verified on a 241Hz display, where the un-normalised version ran ~4x too
   fast.
@@ -141,8 +172,10 @@ later want a real snapshot endpoint, that is the one place to add a `fetch`.
 assets/arco-leap.png              hero, day        (800px RGBA cutout)
 assets/arco-leap-night.png        hero, night      (hoodie Arco, same pose)
 assets/arco-logo.png              nav / favicon / footer
-assets/poses/run-01…09.png        full-res cutouts (source of truth)
-assets/sprites/*.png              320px downscales — game + fetch cameo
+assets/poses/run-01…15.png        all 15 keyed v2 frames (source of truth)
+assets/sprites/run-1…8.png        the chosen cycle, in order
+assets/sprites/air|catch|sit|party.png   jump · ball catch · idle · celebrate
+assets/lore/01…05.jpg             one full-bleed scene per lore chapter
 assets/nfts/01…08.jpg             NFT wall (560px)
 assets/scenes/plate-day.jpg       hero parallax plate (no character, no text)
 assets/scenes/arco-wide.jpg       spare wide scene

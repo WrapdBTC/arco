@@ -41,7 +41,7 @@ const LORE = [
     tag: 'ORIGIN',
     title: 'Found at the edge of the chain',
     body: 'Nobody deployed Arco. He just showed up in the mempool one night, tail wagging, sitting on an unconfirmed block like it was a warm rock. Devs tried to shoo him off. He stayed. The block confirmed anyway.',
-    sprite: 'assets/sprites/sit.png',
+    art: 'assets/lore/01.jpg',
     stamp: 'GOOD BOY #0'
   },
   {
@@ -49,7 +49,7 @@ const LORE = [
     tag: 'THE NOSE',
     title: 'He can smell a rug from three blocks away',
     body: 'It started as a joke. Then Arco growled at four contracts in a row and all four went to zero by Friday. Now the whole pack checks the dog before they check the chart.',
-    sprite: 'assets/sprites/run-2.png',
+    art: 'assets/lore/02.jpg',
     stamp: 'CERTIFIED SNIFFER'
   },
   {
@@ -57,7 +57,7 @@ const LORE = [
     tag: 'THE FETCH',
     title: 'Threw a ball in 2024. He is still going.',
     body: 'Somebody launched a tennis ball across the timeline and Arco went after it at full sprint. Bear market? Kept running. Chain migration? Kept running. He has not looked back once. That is the whole strategy.',
-    sprite: 'assets/sprites/leap.png',
+    art: 'assets/lore/03.jpg',
     stamp: 'STILL RUNNING'
   },
   {
@@ -65,7 +65,7 @@ const LORE = [
     tag: 'NIGHT SHIFT',
     title: 'After midnight the collar comes off',
     body: 'Sweet dog by day. But somewhere around 3am the chain gets quiet, the shades come on, and a very different animal starts posting. We do not talk about the night shift. We just hold through it.',
-    sprite: 'assets/nfts/01.jpg',
+    art: 'assets/lore/04.jpg',
     stamp: 'DEGEN MODE',
     dark: true
   },
@@ -74,7 +74,7 @@ const LORE = [
     tag: 'THE PACK',
     title: 'One dog is a meme. A pack is a movement.',
     body: 'He does not want your money, your keys, or your roadmap. He wants everyone in the yard at the same time, making noise, being ridiculous together. Loyalty is the only tokenomic that ever mattered.',
-    sprite: 'assets/sprites/party.png',
+    art: 'assets/lore/05.jpg',
     stamp: 'YOU ARE HERE'
   }
 ];

@@ -1,8 +1,14 @@
 /* =========================================================
-   ARCO — FETCH RUN
-   Endless runner. Jump red candles, dodge the rug, get balls.
-   Keyboard (Space / ↑) + touch (tap, double-tap = double jump).
-   Logical canvas space is a fixed 960×360; everything scales.
+   ARCO — FETCH RUN  (v2)
+   Endless runner. Jump red candles, dodge the rug, catch balls.
+   Keyboard (Space / ↑) + touch. Logical space is a fixed 960×360.
+
+   v2 feel work:
+   · 8-frame gallop, animation speed tied to running speed
+   · variable jump height (hold = higher), coyote time, jump buffering
+   · ball magnetism + combo multiplier with floating score
+   · speed lines, landing dust, squash & stretch, air tilt
+   · everything delta-timed to 60fps
    ========================================================= */
 (function () {
   'use strict';
@@ -32,19 +38,18 @@
 
   /* ── sprites ─────────────────────────────────────── */
   const SRC = {
-    run: ['assets/sprites/run-1.png', 'assets/sprites/run-2.png', 'assets/sprites/run-3.png', 'assets/sprites/run-4.png'],
+    run: [1, 2, 3, 4, 5, 6, 7, 8].map(n => 'assets/sprites/run-' + n + '.png'),
     air: 'assets/sprites/air.png'
   };
-  // Measured transparent padding per sprite (fraction of the 320px frame).
-  // Without this the run frames jitter vertically and change size mid-stride.
-  const MET = {
-    'run-1': { t: .184, b: .225 }, 'run-2': { t: .181, b: .228 },
-    'run-3': { t: .156, b: .181 }, 'run-4': { t: .206, b: .244 },
-    'air':   { t: .125, b: .153 }
-  };
-  const KEY = ['run-1', 'run-2', 'run-3', 'run-4'];
+  // The v2 frames are pre-normalised by the keying tool: one shared scale,
+  // bbox-centred, already facing right — so no per-frame metrics, no mirroring.
+  // FOOT is the median gap from the sprite's bottom edge to his paws across the
+  // cycle; anchoring on it turns the gallop's natural bounce into motion
+  // instead of jitter.
+  const FOOT = 0.219;
+
   const img = { run: [], air: null, ok: false };
-  let loaded = 0, need = SRC.run.length + 1;
+  let loaded = 0; const need = SRC.run.length + 1;
   const bump = () => { if (++loaded >= need) img.ok = true; };
   SRC.run.forEach((s, i) => { const im = new Image(); im.onload = bump; im.onerror = bump; im.src = s; img.run[i] = im; });
   (function () { const im = new Image(); im.onload = bump; im.onerror = bump; im.src = SRC.air; img.air = im; })();
@@ -56,27 +61,35 @@
       sky1: '#1B0B3D', sky2: '#0A0518', disc: '#F3ECFF', discGlow: 'rgba(168,85,247,.30)',
       star: 'rgba(233,224,255,.9)', far: '#3B1C72', mid: '#2A1055', near: '#1A0838',
       ground: '#14082A', line: '#A855F7', dust: 'rgba(168,85,247,.55)',
-      candle: '#FF3D6E', rug: '#8B5CF6', hydrant: '#22D3EE', ball: '#C9F24D', text: '#EFEAFF'
+      candle: '#FF3D6E', rug: '#8B5CF6', hydrant: '#22D3EE', ball: '#C9F24D',
+      text: '#EFEAFF', speed: 'rgba(201,242,77,.5)'
     } : {
       sky1: '#A9B0F6', sky2: '#EFECFF', disc: '#FFF6D8', discGlow: 'rgba(255,232,150,.55)',
       star: 'rgba(255,255,255,.85)', far: '#C3C7F8', mid: '#9DA3EE', near: '#7C83E2',
       ground: '#E4E0F5', line: '#17132A', dust: 'rgba(23,19,42,.22)',
-      candle: '#E5385C', rug: '#6D4AE0', hydrant: '#2AB6C9', ball: '#9ECB1E', text: '#17132A'
+      candle: '#E5385C', rug: '#6D4AE0', hydrant: '#2AB6C9', ball: '#9ECB1E',
+      text: '#17132A', speed: 'rgba(23,19,42,.28)'
     };
   }
 
   /* ── state ───────────────────────────────────────── */
-  let state = 'idle';               // idle | run | dead
-  let dog, obs, balls, parts, dust;
-  let speed, dist, score, ballCount, t, spawnGap, nextSpawn, shake;
+  let state = 'idle';                       // idle | run | dead
+  let dog, obs, balls, parts, dust, pops, lines;
+  let speed, dist, score, ballCount, combo, comboT, t, nextSpawn, shake, flash;
   let best = store.get('best', 0);
   if (el.best) el.best.textContent = best;
 
+  // jump feel
+  const JUMP_V = -13.2, JUMP2_V = -11.2, GRAV = 0.66, CUT = 0.45;
+  const COYOTE = 7, BUFFER = 8;             // frames of grace, at 60fps
+  let held = false, coyote = 0, buffered = 0;
+
   function reset() {
-    dog = { x: 130, y: GROUND, vy: 0, w: 84, h: 84, jumps: 0, frame: 0, ft: 0, squash: 1 };
-    obs = []; balls = []; parts = []; dust = [];
-    speed = 7.2; dist = 0; score = 0; ballCount = 0; t = 0; shake = 0;
-    spawnGap = 78; nextSpawn = 60; last = 0;
+    dog = { x: 132, y: GROUND, vy: 0, h: 140, jumps: 0, frame: 0, anim: 0, squash: 1, tilt: 0 };
+    obs = []; balls = []; parts = []; dust = []; pops = []; lines = [];
+    speed = 7.0; dist = 0; score = 0; ballCount = 0; combo = 0; comboT = 0;
+    t = 0; shake = 0; flash = 0; nextSpawn = 110; coyote = 0; buffered = 0; held = false;
+    last = 0;
     paint();
   }
 
@@ -87,13 +100,24 @@
   }
 
   /* ── input ───────────────────────────────────────── */
-  function jump() {
+  function tryJump() {
     if (state === 'idle') { start(); return; }
     if (state !== 'run') return;
-    if (dog.jumps >= 2) return;
-    dog.vy = dog.jumps === 0 ? -13.6 : -11.4;
-    dog.jumps++;
-    dog.squash = 0.82;
+    buffered = BUFFER;                       // remembered for a few frames
+  }
+  function doJump() {
+    const grounded = dog.y >= GROUND - 0.5 || coyote > 0;
+    if (grounded && dog.jumps === 0) {
+      dog.vy = JUMP_V; dog.jumps = 1; dog.squash = 1.18; coyote = 0;
+      for (let i = 0; i < 6; i++) dust.push({ x: dog.x - 12, y: GROUND, vx: -1.4 - Math.random() * 2.2, vy: -Math.random() * 2, l: 20 });
+      return true;
+    }
+    if (dog.jumps === 1) {                   // double jump — a little flip
+      dog.vy = JUMP2_V; dog.jumps = 2; dog.squash = 1.12;
+      for (let i = 0; i < 8; i++) parts.push({ x: dog.x, y: dog.y - 46, vx: (Math.random() - .5) * 4, vy: 1 + Math.random() * 2, l: 20 });
+      return true;
+    }
+    return false;
   }
 
   function inView() {
@@ -106,13 +130,19 @@
     const tag = e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
     if (e.code !== 'Space' && e.key !== 'ArrowUp') return;
-    if (state === 'run' || (inView() && state !== 'run')) {
-      e.preventDefault();          // only steal Space when the game is the obvious target
-      jump();
+    if (state === 'run' || inView()) {
+      e.preventDefault();                    // only steal Space when the game is the target
+      if (!e.repeat) { held = true; tryJump(); }
     }
   });
+  window.addEventListener('keyup', e => {
+    if (e.code === 'Space' || e.key === 'ArrowUp') held = false;
+  });
 
-  canvas.addEventListener('pointerdown', e => { e.preventDefault(); jump(); });
+  canvas.addEventListener('pointerdown', e => { e.preventDefault(); held = true; tryJump(); });
+  window.addEventListener('pointerup', () => { held = false; });
+  window.addEventListener('pointercancel', () => { held = false; });
+
   document.getElementById('gStartBtn').addEventListener('click', start);
   document.getElementById('gAgainBtn').addEventListener('click', start);
 
@@ -121,47 +151,49 @@
     state = 'run';
     el.start.classList.add('overlay--hide');
     el.over.classList.add('overlay--hide');
-    canvas.focus && canvas.focus();
   }
 
   function die() {
     state = 'dead';
-    shake = 12;
-    const s = Math.floor(score);
-    if (s > best) { best = s; store.set('best', best); }
+    shake = 14;
+    const sc = Math.floor(score);
+    if (sc > best) { best = sc; store.set('best', best); }
     paint();
 
-    let title = 'He tripped.', line = 'Score ' + s + ' · ' + ballCount + ' balls';
-    if (s >= 1200) title = 'Absolute unit.';
-    else if (s >= 600) title = 'Certified good boy.';
-    else if (s >= 250) title = 'Not bad at all.';
+    let title = 'He tripped.';
+    if (sc >= 1500) title = 'Absolute unit.';
+    else if (sc >= 600) title = 'Certified good boy.';
+    else if (sc >= 250) title = 'Not bad at all.';
     el.overT.textContent = title;
-    el.overX.textContent = line + (s >= best && s > 0 ? ' — new best!' : '');
-    el.overI.src = s >= 600 ? 'assets/sprites/party.png' : 'assets/sprites/sit.png';
+    el.overX.textContent = 'Score ' + sc + ' · ' + ballCount + ' balls' + (sc >= best && sc > 0 ? ' — new best!' : '');
+    el.overI.src = sc >= 600 ? 'assets/sprites/catch.png' : 'assets/sprites/sit.png';
     el.over.classList.remove('overlay--hide');
 
-    if (s >= 600 && typeof window.ArcoBonus === 'function') window.ArcoBonus(s);
+    if (sc >= 600 && typeof window.ArcoBonus === 'function') window.ArcoBonus(sc);
   }
 
   /* ── spawning ────────────────────────────────────── */
   function spawn() {
     const roll = Math.random();
-    if (roll < 0.34)      obs.push({ type: 'candle',  x: W + 40, w: 26, h: 62, y: GROUND });
-    else if (roll < 0.62) obs.push({ type: 'hydrant', x: W + 40, w: 30, h: 46, y: GROUND });
-    else if (roll < 0.84) obs.push({ type: 'rug',     x: W + 40, w: 92, h: 26, y: GROUND });
+    if (roll < 0.32)      obs.push({ type: 'candle',  x: W + 40, w: 26, h: 62, y: GROUND });
+    else if (roll < 0.58) obs.push({ type: 'hydrant', x: W + 40, w: 30, h: 46, y: GROUND });
+    else if (roll < 0.80) obs.push({ type: 'rug',     x: W + 40, w: 92, h: 26, y: GROUND });
     else {
       obs.push({ type: 'candle', x: W + 40,  w: 24, h: 54, y: GROUND });
-      obs.push({ type: 'candle', x: W + 106, w: 24, h: 74, y: GROUND });
+      obs.push({ type: 'candle', x: W + 118, w: 24, h: 66, y: GROUND });
     }
-    // a ball arc to chase
-    if (Math.random() < 0.72) {
-      const h = 90 + Math.random() * 90;
-      for (let i = 0; i < 3; i++) balls.push({ x: W + 150 + i * 46, y: GROUND - h - Math.sin(i) * 12, r: 11, got: false });
+    if (Math.random() < 0.78) {              // an arc of balls to chase
+      const n = 3 + (Math.random() < .35 ? 2 : 0);
+      const h = 66 + Math.random() * 62;
+      for (let i = 0; i < n; i++) {
+        const p = i / (n - 1);
+        balls.push({ x: W + 150 + i * 44, y: GROUND - h - Math.sin(p * Math.PI) * 28, r: 11 });
+      }
     }
   }
 
   /* ── drawing helpers ─────────────────────────────── */
-  const mod = (n, m) => ((n % m) + m) % m;      // JS % is signed; scrolling decor needs wrap
+  const mod = (n, m) => ((n % m) + m) % m;   // JS % is signed; scrolling decor needs wrap
 
   function roundRect(x, y, w, h, r) {
     ctx.beginPath();
@@ -190,8 +222,7 @@
       ctx.fillStyle = 'rgba(0,0,0,.18)';
       roundRect(o.x + o.w - 12, top + 12, 6, o.h - 14, 3); ctx.fill();
     } else {
-      // the rug — rolled up, obviously
-      ctx.fillStyle = c.rug;
+      ctx.fillStyle = c.rug;                 // it is a rug. obviously.
       roundRect(o.x, top, o.w, o.h, 12); ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 2.5;
       for (let i = 1; i < 4; i++) {
@@ -203,36 +234,28 @@
   }
 
   function drawDog(c) {
-    const airborne = dog.y < GROUND - 2;
-    const im  = airborne ? img.air : img.run[dog.frame];
-    const met = airborne ? MET.air : MET[KEY[dog.frame]];
-    const sq  = dog.squash;
+    const airborne = dog.y < GROUND - 3;
+    const im = airborne ? img.air : img.run[dog.frame];
 
-    // normalise: every frame gets the same visible height and sits exactly on dog.y
-    const vf = 1 - met.t - met.b;
-    const dh = (dog.h * sq) / vf;
-    const dw = dh;
-    const dy = dog.y - dh * (1 - met.b);
+    const dh = dog.h / dog.squash, dw = dog.h * dog.squash;   // squash preserves volume
+    const cy = dog.y - dh * (1 - FOOT) + dh / 2;
 
     ctx.save();
-    // ground shadow — shrinks and fades as he lifts off
     const lift = Math.max(0, (GROUND - dog.y) / 130);
     ctx.globalAlpha = .24 * (1 - lift * .75);
     ctx.fillStyle = '#000';
-    ctx.beginPath(); ctx.ellipse(dog.x, GROUND + 5, 32 * (1 - lift * .4), 6.5, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(dog.x, GROUND + 5, 33 * (1 - lift * .4), 6.5, 0, 0, 7); ctx.fill();
     ctx.globalAlpha = 1;
 
     if (img.ok && im && im.naturalWidth) {
-      // Source cutouts face LEFT; the runner moves right, so mirror them.
-      ctx.translate(dog.x, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(im, -dw / 2, dy, dw, dh);
-    } else {                                    // sprite missing -> readable placeholder
+      ctx.translate(dog.x, cy);
+      if (dog.tilt) ctx.rotate(dog.tilt);
+      ctx.drawImage(im, -dw / 2, -dh / 2, dw, dh);
+    } else {
       ctx.fillStyle = c.mid;
       roundRect(dog.x - 30, dog.y - 62, 60, 58, 16); ctx.fill();
       ctx.fillStyle = c.text; ctx.font = '700 12px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText('ARCO', dog.x, dog.y - 28);
-      ctx.textAlign = 'left';
+      ctx.fillText('ARCO', dog.x, dog.y - 28); ctx.textAlign = 'left';
     }
     ctx.restore();
   }
@@ -256,17 +279,12 @@
     g.addColorStop(0, c.sky1); g.addColorStop(1, c.sky2);
     ctx.fillStyle = g; ctx.fillRect(0, skyTop, W, H - skyTop);
 
-    // moon / sun
     ctx.fillStyle = c.discGlow;
     ctx.beginPath(); ctx.arc(782, 84, 62, 0, 7); ctx.fill();
     ctx.fillStyle = c.disc;
     ctx.beginPath(); ctx.arc(782, 84, 34, 0, 7); ctx.fill();
-    if (night) {                       // crescent bite
-      ctx.fillStyle = c.sky1;
-      ctx.beginPath(); ctx.arc(766, 74, 30, 0, 7); ctx.fill();
-    }
+    if (night) { ctx.fillStyle = c.sky1; ctx.beginPath(); ctx.arc(766, 74, 30, 0, 7); ctx.fill(); }
 
-    // stars / sparkles
     ctx.fillStyle = c.star;
     for (let i = 0; i < 22; i++) {
       const x = mod(i * 271, W) + Math.sin(i) * 12;
@@ -277,38 +295,33 @@
     }
     ctx.globalAlpha = 1;
 
-    // floating Arc cubes
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 10; i++) {           // floating Arc cubes
       const x = mod(i * 143 - dist * .16, W + 200) - 100;
       const y = 46 + ((i * 61) % 96);
       const sz = 11 + (i % 3) * 7;
       ctx.save();
       ctx.translate(x, y + Math.sin((t + i * 40) / 58) * 6);
       ctx.rotate(i % 2 ? .32 : -.24);
-      ctx.globalAlpha = .55;
-      ctx.fillStyle = c.far;
+      ctx.globalAlpha = .55; ctx.fillStyle = c.far;
       roundRect(-sz / 2, -sz / 2, sz, sz, 4); ctx.fill();
       ctx.strokeStyle = c.line; ctx.globalAlpha = .16; ctx.lineWidth = 1.4;
       roundRect(-sz / 2, -sz / 2, sz, sz, 4); ctx.stroke();
       ctx.restore();
     }
 
-    hills(206, 20, 128, .30, c.far);   // far ridge
-    hills(236, 15,  86, .52, c.mid);   // mid ridge
-    hills(268, 10,  58, .78, c.near);  // near ridge
+    hills(206, 20, 128, .30, c.far);
+    hills(236, 15,  86, .52, c.mid);
+    hills(268, 10,  58, .78, c.near);
 
-    // ground slab
     ctx.fillStyle = c.ground;
     ctx.fillRect(0, GROUND + 6, W, H - GROUND);
     ctx.strokeStyle = c.line; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(0, GROUND + 6); ctx.lineTo(W, GROUND + 6); ctx.stroke();
 
-    // paw prints trailing past
-    ctx.fillStyle = c.dust;
-    ctx.globalAlpha = .5;
+    ctx.fillStyle = c.dust; ctx.globalAlpha = .5;
     for (let i = 0; i < 13; i++) {
       const x = mod(i * 108 - dist * .6, W + 140) - 70;
-      const y = GROUND + 22 + (i % 2) * 15;         // stagger like an actual gait
+      const y = GROUND + 22 + (i % 2) * 15;
       ctx.beginPath(); ctx.ellipse(x, y + 6, 4.6, 3.6, 0, 0, 7); ctx.fill();
       ctx.beginPath(); ctx.ellipse(x - 3.6, y, 1.7, 2.1, 0, 0, 7); ctx.fill();
       ctx.beginPath(); ctx.ellipse(x + 0.7, y - 2, 1.7, 2.1, 0, 0, 7); ctx.fill();
@@ -326,20 +339,20 @@
     canvas.width  = Math.round(r.width * dpr);
     canvas.height = Math.round(r.height * dpr);
     scale  = canvas.width / W;
-    yOff   = canvas.height - H * scale;   // spare device px above the 960x360 world
-    skyTop = -yOff / scale;               // ...expressed in logical units
+    yOff   = canvas.height - H * scale;
+    skyTop = -yOff / scale;
   }
   window.addEventListener('resize', fit);
   fit();
 
-  // Everything below is delta-timed against 60fps. Without this the game runs
-  // ~2.5x too fast on a 144Hz display and slow-motion on a throttled tab.
+  // Delta-timed against 60fps: without this the game runs several times too
+  // fast on a high-refresh display.
   let last = 0;
   function frame(now) {
     requestAnimationFrame(frame);
     if (!canvas.width || !canvas.height) fit();
     if (!last) last = now;
-    const dt = Math.min(3, (now - last) / 16.6667) || 1;   // clamp tab-switch jumps
+    const dt = Math.min(3, (now - last) / 16.6667) || 1;
     last = now;
 
     const c = pal();
@@ -351,35 +364,53 @@
       if (shake < .4) shake = 0;
     }
 
+    // Attract mode: while nobody is playing he keeps trotting behind the
+    // start card, so the idle state is alive instead of a frozen frame.
+    if (state === 'idle') {
+      t += dt;
+      speed = 5.4;
+      dist += speed * dt;
+      dog.anim += dt * (speed / 7.6);
+      dog.frame = Math.floor(dog.anim / 2.6) % img.run.length;
+      dog.y = GROUND; dog.vy = 0; dog.tilt = 0; dog.squash = 1;
+    }
+
     if (state === 'run') {
       t += dt;
-      speed = Math.min(15.5, 7.2 + dist / 1900);
+      speed = Math.min(16.5, 7.0 + Math.sqrt(dist) / 26);   // smoother ramp
       dist  += speed * dt;
       score += speed * 0.055 * dt;
 
-      // dog physics
-      dog.vy += 0.66 * dt;
+      // --- jump: buffering + coyote time + variable height ---
+      if (buffered > 0) { buffered -= dt; if (doJump()) buffered = 0; }
+      if (dog.y >= GROUND - 0.5) coyote = COYOTE; else coyote -= dt;
+      if (!held && dog.vy < 0) dog.vy += GRAV * CUT * dt * 2.2;  // release = shorter hop
+
+      dog.vy += GRAV * dt;
       dog.y  += dog.vy * dt;
       if (dog.y >= GROUND) {
-        if (dog.vy > 6) {
-          dog.squash = 0.78;
-          for (let i = 0; i < 5; i++) dust.push({ x: dog.x - 10, y: GROUND, vx: -1 - Math.random() * 2, vy: -Math.random() * 2, l: 22 });
+        if (dog.vy > 7) {
+          dog.squash = 0.80; shake = Math.min(6, dog.vy * .5);
+          for (let i = 0; i < 6; i++) dust.push({ x: dog.x - 8, y: GROUND, vx: -1 - Math.random() * 2.4, vy: -Math.random() * 2.2, l: 22 });
         }
         dog.y = GROUND; dog.vy = 0; dog.jumps = 0;
       }
-      dog.squash += (1 - dog.squash) * (1 - Math.pow(1 - .16, dt));
+      dog.squash += (1 - dog.squash) * (1 - Math.pow(1 - .17, dt));
 
-      // run cycle: a time accumulator, not a frame counter
-      dog.ft += dt;
-      const per = Math.max(3, 8 - speed / 3);
-      dog.frame = Math.floor(dog.ft / per) % img.run.length;
+      // air tilt: nose down as he falls, up as he rises
+      const wantTilt = dog.y < GROUND - 3 ? Math.max(-.22, Math.min(.3, dog.vy * .018)) : 0;
+      dog.tilt += (wantTilt - dog.tilt) * (1 - Math.pow(1 - .18, dt));
 
-      // spawn
+      // --- run cycle, paced by actual speed ---
+      dog.anim += dt * (speed / 7.6);
+      dog.frame = Math.floor(dog.anim / 2.6) % img.run.length;
+
+      // --- spawning ---
       nextSpawn -= dt;
-      if (nextSpawn <= 0) { spawn(); nextSpawn = Math.max(46, spawnGap - dist / 420) + Math.random() * 40; }
+      if (nextSpawn <= 0) { spawn(); nextSpawn = Math.max(44, 78 - dist / 500) + Math.random() * 38; }
 
-      // move + collide
-      const hb = { x: dog.x - 26, y: dog.y - 58, w: 52, h: 56 };
+      // --- obstacles ---
+      const hb = { x: dog.x - 30, y: dog.y - 62, w: 60, h: 60 };
       for (let i = obs.length - 1; i >= 0; i--) {
         const o = obs[i];
         o.x -= speed * dt;
@@ -387,22 +418,52 @@
         if (state === 'run' && hb.x < o.x + o.w && hb.x + hb.w > o.x &&
             hb.y < o.y && hb.y + hb.h > o.y - o.h) die();
       }
+
+      // --- balls: slight magnetism, then combo ---
       for (let i = balls.length - 1; i >= 0; i--) {
         const b = balls[i];
         b.x -= speed * dt;
-        if (b.x < -40) { balls.splice(i, 1); continue; }
-        const dx = b.x - dog.x, dy = b.y - (dog.y - 40);
-        if (dx * dx + dy * dy < 46 * 46) {
-          balls.splice(i, 1); ballCount++; score += 5;
-          for (let k = 0; k < 8; k++) parts.push({ x: b.x, y: b.y, vx: (Math.random() - .5) * 5, vy: -Math.random() * 4 - 1, l: 26 });
+        if (b.x < -40) { balls.splice(i, 1); combo = 0; continue; }
+        const cx = dog.x, cy = dog.y - 42;
+        const dx = b.x - cx, dy = b.y - cy;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < 124 * 124) {                       // magnet
+          const pull = (1 - Math.sqrt(d2) / 124) * 2.1 * dt;
+          b.x -= dx * pull * .5; b.y -= dy * pull * .5;
         }
+        if (d2 < 48 * 48) {
+          balls.splice(i, 1);
+          ballCount++; combo++; comboT = 70;
+          const gain = 5 * Math.min(5, combo);
+          score += gain;
+          pops.push({ x: b.x, y: b.y, txt: '+' + gain, l: 42, vy: -1.1 });
+          for (let k = 0; k < 9; k++) parts.push({ x: b.x, y: b.y, vx: (Math.random() - .5) * 5.5, vy: -Math.random() * 4 - 1, l: 26 });
+        }
+      }
+      comboT -= dt; if (comboT <= 0) combo = 0;
+
+      // --- speed lines once he is really moving ---
+      if (speed > 10 && Math.random() < .35 * dt) {
+        lines.push({ x: W + 20, y: 60 + Math.random() * (GROUND - 90), len: 40 + Math.random() * 70, l: 26 });
       }
       paint();
     }
 
     drawBg(c);
 
+    // speed lines sit behind the action
+    ctx.strokeStyle = c.speed; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const L = lines[i];
+      L.x -= (speed * 2.4) * dt; L.l -= dt;
+      if (L.l <= 0 || L.x + L.len < -20) { lines.splice(i, 1); continue; }
+      ctx.globalAlpha = Math.min(1, L.l / 26) * .8;
+      ctx.beginPath(); ctx.moveTo(L.x, L.y); ctx.lineTo(L.x + L.len, L.y); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
     obs.forEach(o => drawObstacle(o, c));
+
     balls.forEach(b => {
       const by = b.y + Math.sin((t + b.x) / 22) * 4;
       ctx.fillStyle = c.ball;
@@ -430,6 +491,27 @@
     ctx.globalAlpha = 1;
 
     drawDog(c);
+
+    // floating score pops, and the combo badge
+    ctx.textAlign = 'center';
+    for (let i = pops.length - 1; i >= 0; i--) {
+      const p = pops[i];
+      p.y += p.vy * dt; p.l -= dt;
+      if (p.l <= 0) { pops.splice(i, 1); continue; }
+      ctx.globalAlpha = Math.min(1, p.l / 22);
+      ctx.fillStyle = c.ball;
+      ctx.font = '800 20px "Bricolage Grotesque", system-ui, sans-serif';
+      ctx.fillText(p.txt, p.x, p.y);
+    }
+    ctx.globalAlpha = 1;
+    if (combo > 1 && state === 'run') {
+      ctx.fillStyle = c.ball;
+      ctx.font = '800 26px "Bricolage Grotesque", system-ui, sans-serif';
+      ctx.globalAlpha = Math.min(1, comboT / 24);
+      ctx.fillText('x' + Math.min(5, combo), dog.x, dog.y - 108);
+      ctx.globalAlpha = 1;
+    }
+    ctx.textAlign = 'left';
   }
 
   reset();

@@ -19,6 +19,7 @@ Static HTML / CSS / vanilla JS. No build step, no dependencies.
 | `js/game.js` | Fetch Run, the mini-game |
 | `js/pack.js` | Good Boy Program (follow / like / retweet / wallet) |
 | `BUILD_NOTES.md` | concept, how to play, what still needs filling in |
+| `tools/arcokey.swift` | turns white-background art drops into normalised transparent sprites |
 
 ## Local preview
 
@@ -30,7 +31,7 @@ Then open <http://localhost:4173>.
 ## Before launch
 
 Fill in the `TBA` values in `js/config.js` — see **BUILD_NOTES.md §4**.
-Bump the `?v=claude4` cache-buster in `index.html` whenever you edit CSS or JS.
+Bump the `?v=claude7` cache-buster in `index.html` whenever you edit CSS or JS.
 
 ---
 
