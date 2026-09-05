@@ -1,85 +1,37 @@
-# Arco the Dog — $ARCO
+# ARCO — Off The Leash
 
-Interactive memecoin landing site for **Arco the Dog** on **Arc L1** (Circle).  
-Public mainnet target: **September 16, 2026 · 00:00 UTC**.
+Landing site for **$ARCO**, a community memecoin and mascot inspired by **Arc L1**.
 
-> Curious. Loyal. Always exploring.  
-> Arco is here. The mainnet era begins.  
-> Let's build the future—together.
+- **Launch:** September 16, 2026 · 00:00 UTC
+- **Supply:** 1,000,000,000 · **Tax:** 0% · **LP:** TBA · **CA:** TBA
+- **NFTs (after the token):** 3,333 · free mint for $ARCO holders
 
-**Disclaimer:** Community mascot project — **not** an official Circle / Arc product. Learn more at [arc.xyz](https://www.arc.xyz/).
+Static HTML / CSS / vanilla JS. No build step, no dependencies.
 
-## Stack
+## What is in here
 
-- Static HTML / CSS / Vanilla JS (no build step)
-- [Space Grotesk](https://fonts.google.com/specimen/Space+Grotesk) via Google Fonts CDN
-- Assets in `assets/` (logo, poses, promo, video)
+| | |
+|---|---|
+| `index.html` | the whole page |
+| `css/style.css` | design system, dual light/dark character modes |
+| `js/config.js` | **SOCIAL links, launch data and lore — edit this one** |
+| `js/main.js` | boot, nav, mode switch, countdown, lore rail, parallax, the ball |
+| `js/game.js` | Fetch Run, the mini-game |
+| `js/pack.js` | Good Boy Program (follow / like / retweet / wallet) |
+| `BUILD_NOTES.md` | concept, how to play, what still needs filling in |
 
 ## Local preview
 
 ```bash
-cd arco-the-dog
-# any static server, e.g.:
-python3 -m http.server 8080
-# then open http://localhost:8080
+python3 -m http.server 4173
 ```
+Then open <http://localhost:4173>.
 
-Or open `index.html` directly in a browser.
+## Before launch
 
-## Deploy to GitHub Pages
+Fill in the `TBA` values in `js/config.js` — see **BUILD_NOTES.md §4**.
+Bump the `?v=claude1` cache-buster in `index.html` whenever you edit CSS or JS.
 
-1. Create a new GitHub repo (e.g. `arco-the-dog` or `yourname.github.io`).
-2. Push this folder as the repo root (or put site files on `main`):
+---
 
-   ```bash
-   git init
-   git add .
-   git commit -m "Launch Arco the Dog landing"
-   git branch -M main
-   git remote add origin https://github.com/<USER>/<REPO>.git
-   git push -u origin main
-   ```
-
-3. In the repo on GitHub: **Settings → Pages**.
-4. Under **Build and deployment → Source**, choose **Deploy from a branch**.
-5. Branch: **main** · Folder: **/ (root)** → **Save**.
-6. Wait a minute; your site will be at:
-
-   `https://<USER>.github.io/<REPO>/`
-
-   (or `https://<USER>.github.io/` if the repo is named `<USER>.github.io`)
-
-### Optional: custom domain
-
-Add a `CNAME` file in the root with your domain, then configure DNS per [GitHub Pages docs](https://docs.github.com/en/pages).
-
-## Project layout
-
-```
-arco-the-dog/
-├── index.html
-├── css/style.css
-├── js/main.js
-├── assets/
-│   ├── arco-logo.png
-│   ├── arco-promo.png
-│   ├── arco-run.png
-│   ├── arco-jump.png
-│   ├── arco-wave.png
-│   └── arco.mp4
-└── README.md
-```
-
-## Features
-
-- Live countdown to Arc public mainnet (`2026-09-16T00:00:00Z`)
-- Paw / sparkle cursor trail
-- Click Arco → bounce + “WOOF” toast + confetti
-- Type **ARCO** anywhere → secret confetti
-- Scroll reveals, 3D card tilt, floating cubes & paws
-- Gallery (all images + video), tokenomics / roadmap / CA placeholders
-- Mobile responsive nav
-
-## License / note
-
-Mascot art and branding for community use around $ARCO. Not affiliated with Circle Internet Financial or the Arc Network team.
+$ARCO is a community memecoin inspired by Arc L1. Not affiliated with Circle or Arc. NFA. DYOR.

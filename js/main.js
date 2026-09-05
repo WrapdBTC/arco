@@ -1,218 +1,457 @@
-(() => {
-  const LAUNCH = Date.parse("2026-09-16T00:00:00Z");
-  const dog = document.getElementById("stickyDog");
-  const dogImg = document.getElementById("dogImg");
-  const progress = document.getElementById("scrollProgress");
-  const toast = document.getElementById("toast");
-  const muteBtn = document.getElementById("muteBtn");
-  const woofBtn = document.getElementById("woofBtn");
-  const poses = {
-    wave: "assets/arco-wave.png",
-    run: "assets/arco-run.png",
-    jump: "assets/arco-jump.png",
-  };
-  let muted = localStorage.getItem("arco-muted") !== "0";
-  let audioCtx = null;
-  let ambient = null;
+/* =========================================================
+   ARCO — main.js
+   Boot · nav · mode switch · countdown · ticker · lore rail
+   parallax · reveals · the ball (fetch easter egg)
+   ========================================================= */
+(function () {
+  'use strict';
 
-  const showToast = (msg) => {
-    if (!toast) return;
-    toast.textContent = msg;
-    toast.classList.add("show");
-    clearTimeout(showToast._t);
-    showToast._t = setTimeout(() => toast.classList.remove("show"), 1600);
+  const $  = (s, r) => (r || document).querySelector(s);
+  const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+  const RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('arco.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('arco.' + k, JSON.stringify(v)); } catch (e) {} },
+    del(k)    { try { localStorage.removeItem('arco.' + k); } catch (e) {} }
   };
 
-  const ensureAudio = () => {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === "suspended") audioCtx.resume();
-    return audioCtx;
-  };
+  /* ── toast ─────────────────────────────────────────── */
+  let toastT;
+  const toastEl = $('#toast');
+  function toast(msg, ms) {
+    if (!toastEl) return;
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastT);
+    toastT = setTimeout(() => toastEl.classList.remove('show'), ms || 2600);
+  }
+  window.ArcoToast = toast;
 
-  const setMuteUI = () => {
-    if (!muteBtn) return;
-    muteBtn.textContent = muted ? "🔇" : "🔊";
-    muteBtn.setAttribute("aria-pressed", muted ? "true" : "false");
-    localStorage.setItem("arco-muted", muted ? "1" : "0");
-  };
+  /* ── broken images → styled placeholder (never a broken icon) ── */
+  function placeholder(img) {
+    if (!img.parentNode || img.dataset.ph) return;
+    img.dataset.ph = '1';
+    const d = document.createElement('div');
+    d.className = 'ph';
+    d.setAttribute('role', 'img');
+    d.setAttribute('aria-label', img.alt || 'Arco artwork');
+    d.innerHTML =
+      '<svg viewBox="0 0 100 100" aria-hidden="true">' +
+      '<ellipse cx="50" cy="62" rx="26" ry="22"/>' +
+      '<ellipse cx="26" cy="34" rx="10" ry="13"/><ellipse cx="42" cy="23" rx="9.5" ry="13"/>' +
+      '<ellipse cx="60" cy="23" rx="9.5" ry="13"/><ellipse cx="75" cy="34" rx="10" ry="13"/>' +
+      '</svg><span>' + (img.alt || 'Art coming') + '</span>';
+    if (img.width)  d.style.aspectRatio = (img.width || 1) + '/' + (img.height || 1);
+    img.replaceWith(d);
+  }
+  document.addEventListener('error', e => {
+    if (e.target && e.target.tagName === 'IMG') placeholder(e.target);
+  }, true);
 
-  const startAmbient = () => {
-    if (muted || ambient) return;
-    const ctx = ensureAudio();
-    const master = ctx.createGain();
-    master.gain.value = 0.03;
-    master.connect(ctx.destination);
-    const a = ctx.createOscillator();
-    const b = ctx.createOscillator();
-    a.type = "sine"; b.type = "triangle";
-    a.frequency.value = 86; b.frequency.value = 129;
-    a.connect(master); b.connect(master);
-    a.start(); b.start();
-    ambient = { a, b, master };
-  };
+  /* ── 1. BOOT ───────────────────────────────────────── */
+  (function boot() {
+    const el = $('#boot'), bar = $('#bootBar');
+    if (!el) return;
+    let p = 0;
+    const tick = setInterval(() => { p = Math.min(96, p + 11 + Math.random() * 16); bar.style.width = p + '%'; }, 90);
+    const finish = () => {
+      clearInterval(tick);
+      bar.style.width = '100%';
+      setTimeout(() => { el.classList.add('done'); document.body.classList.add('ready'); }, 220);
+    };
+    const hero = $('#heroDog');
+    let waited = false;
+    const go = () => { if (!waited) { waited = true; finish(); } };
+    if (hero && !hero.complete) hero.addEventListener('load', go, { once: true });
+    window.addEventListener('load', go, { once: true });
+    setTimeout(go, 1600);              // hard cap — never hold the user hostage
+  })();
 
-  const stopAmbient = () => {
-    if (!ambient) return;
-    try { ambient.a.stop(); ambient.b.stop(); } catch (e) {}
-    ambient = null;
-  };
+  /* ── 2. NAV ────────────────────────────────────────── */
+  const nav = $('#nav');
+  const onScrollNav = () => nav && nav.classList.toggle('stuck', window.scrollY > 24);
+  onScrollNav();
+  window.addEventListener('scroll', onScrollNav, { passive: true });
 
-  const burst = () => {
-    const canvas = document.getElementById("confettiCanvas");
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    const dpr = Math.min(devicePixelRatio || 1, 2);
-    canvas.width = innerWidth * dpr;
-    canvas.height = innerHeight * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const parts = Array.from({ length: 50 }, () => ({
-      x: innerWidth / 2, y: innerHeight * 0.55,
-      vx: (Math.random() - 0.5) * 14,
-      vy: -4 - Math.random() * 12,
-      life: 1,
-      c: ["#7b6cf6", "#ff6bcb", "#c4b5fd", "#fff"][(Math.random() * 4) | 0],
-      s: 3 + Math.random() * 5,
+  const burger = $('#burger');
+  if (burger) {
+    burger.addEventListener('click', () => {
+      const open = nav.classList.toggle('open');
+      burger.setAttribute('aria-expanded', String(open));
+    });
+    $$('.nav__links a').forEach(a => a.addEventListener('click', () => {
+      nav.classList.remove('open'); burger.setAttribute('aria-expanded', 'false');
     }));
-    let n = 0;
-    const tick = () => {
-      n++;
-      ctx.clearRect(0, 0, innerWidth, innerHeight);
-      parts.forEach((p) => {
-        p.vy += 0.28; p.x += p.vx; p.y += p.vy; p.life -= 0.018;
-        ctx.globalAlpha = Math.max(0, p.life);
-        ctx.fillStyle = p.c;
-        ctx.fillRect(p.x, p.y, p.s, p.s);
-      });
-      if (n < 70) requestAnimationFrame(tick);
-      else ctx.clearRect(0, 0, innerWidth, innerHeight);
-    };
-    tick();
-  };
+  }
 
-  const woof = () => {
-    if (muted) { showToast("Unmute for WOOF"); return; }
-    const ctx = ensureAudio();
-    startAmbient();
-    const t0 = ctx.currentTime;
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    const f = ctx.createBiquadFilter();
-    o.type = "sawtooth";
-    o.frequency.setValueAtTime(190, t0);
-    o.frequency.exponentialRampToValueAtTime(68, t0 + 0.2);
-    f.type = "lowpass"; f.frequency.value = 900;
-    g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(0.32, t0 + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
-    o.connect(f); f.connect(g); g.connect(ctx.destination);
-    o.start(t0); o.stop(t0 + 0.3);
-    burst();
-    if (dog) {
-      dog.classList.add("pose-jump");
-      setTimeout(() => dog.classList.remove("pose-jump"), 700);
+  /* ── 3. MODE SWITCH (Good Boy ⇄ Degen) ─────────────── */
+  const modeBtn = $('#modeBtn'), modeLabel = $('#modeLabel');
+  function setMode(m, announce) {
+    document.documentElement.classList.add('mode-anim');
+    document.documentElement.dataset.mode = m;
+    if (modeLabel) modeLabel.textContent = m === 'night' ? 'DEGEN' : 'GOOD BOY';
+    if (modeBtn) modeBtn.setAttribute('aria-pressed', String(m === 'night'));
+    const tc = $('meta[name="theme-color"]');
+    if (tc) tc.setAttribute('content', m === 'night' ? '#07040E' : '#6D4AE0');
+    store.set('mode', m);
+    setTimeout(() => document.documentElement.classList.remove('mode-anim'), 520);
+    if (announce) toast(m === 'night' ? 'Night shift. The collar is off.' : 'Good boy mode restored.');
+  }
+  setMode(store.get('mode', 'day'), false);
+  if (modeBtn) modeBtn.addEventListener('click', () =>
+    setMode(document.documentElement.dataset.mode === 'night' ? 'day' : 'night', true));
+
+  /* ── 4. COUNTDOWN ──────────────────────────────────── */
+  (function countdown() {
+    const target = new Date(LAUNCH.iso).getTime();
+    const D = $('#cdD'), H = $('#cdH'), M = $('#cdM'), S = $('#cdS'), dateEl = $('#cdDate');
+    if (dateEl) dateEl.textContent = LAUNCH.label;
+    const pad = n => String(n).padStart(2, '0');
+    function tick() {
+      const diff = target - Date.now();
+      if (diff <= 0) {
+        if (D) D.textContent = '00'; if (H) H.textContent = '00';
+        if (M) M.textContent = '00'; if (S) S.textContent = '00';
+        const lbl = $('.tag__label'); if (lbl) lbl.textContent = 'He is out';
+        return;
+      }
+      const s = Math.floor(diff / 1000);
+      if (D) D.textContent = pad(Math.floor(s / 86400));
+      if (H) H.textContent = pad(Math.floor(s / 3600) % 24);
+      if (M) M.textContent = pad(Math.floor(s / 60) % 60);
+      if (S) S.textContent = pad(s % 60);
     }
-    showToast("WOOF!");
-  };
+    tick(); setInterval(tick, 1000);
+  })();
 
-  const setPose = (name) => {
-    if (!dog || !dogImg) return;
-    const src = poses[name] || poses.wave;
-    if (dogImg.getAttribute("src") !== src) {
-      dogImg.style.opacity = "0.45";
-      dogImg.setAttribute("src", src);
-      requestAnimationFrame(() => { dogImg.style.opacity = "1"; });
-    }
-    dog.classList.remove("pose-wave", "pose-run", "pose-jump");
-    dog.classList.add("pose-" + (name || "wave"));
-  };
+  /* ── 5. TICKER ─────────────────────────────────────── */
+  (function ticker() {
+    const track = $('#tickerTrack');
+    if (!track || typeof TICKER === 'undefined') return;
+    const one = TICKER.map(t => '<span class="ticker__i">' + t + '</span>').join('');
+    track.innerHTML = one + one;               // duplicated for a seamless -50% loop
+  })();
 
-  const updateCountdown = () => {
-    const el = {
-      d: document.getElementById("cdDays"),
-      h: document.getElementById("cdHours"),
-      m: document.getElementById("cdMins"),
-      s: document.getElementById("cdSecs"),
-    };
-    if (!el.d) return;
-    let diff = Math.max(0, LAUNCH - Date.now());
-    const days = Math.floor(diff / 86400000); diff -= days * 86400000;
-    const hours = Math.floor(diff / 3600000); diff -= hours * 3600000;
-    const mins = Math.floor(diff / 60000); diff -= mins * 60000;
-    const secs = Math.floor(diff / 1000);
-    const pad = (n) => String(n).padStart(2, "0");
-    el.d.textContent = pad(days);
-    el.h.textContent = pad(hours);
-    el.m.textContent = pad(mins);
-    el.s.textContent = pad(secs);
-  };
+  /* ── 6. LORE RAIL ──────────────────────────────────── */
+  (function rail() {
+    const rail = $('#rail'), track = $('#railTrack');
+    if (!rail || !track || typeof LORE === 'undefined') return;
 
-  const chapters = [...document.querySelectorAll(".chapter")];
-  const dots = [...document.querySelectorAll(".chapter-dots .dot")];
+    track.innerHTML = LORE.map(c =>
+      '<article class="chapter' + (c.dark ? ' chapter--dark' : '') + '">' +
+        '<div class="chapter__art">' +
+          '<img src="' + c.sprite + '" alt="Arco — ' + c.tag + '" loading="lazy" width="190" height="190">' +
+          '<span class="chapter__stamp">' + c.stamp + '</span>' +
+        '</div>' +
+        '<div class="chapter__body">' +
+          '<div class="chapter__meta">' + c.tag + ' <i>/</i> <i>' + c.n + '</i></div>' +
+          '<h3>' + c.title + '</h3><p>' + c.body + '</p>' +
+        '</div>' +
+      '</article>'
+    ).join('');
 
-  const onScroll = () => {
-    const max = document.documentElement.scrollHeight - innerHeight;
-    if (progress) progress.style.width = (max > 0 ? Math.min(100, (scrollY / max) * 100) : 0) + "%";
-    let active = chapters[0];
-    let best = Infinity;
-    chapters.forEach((sec) => {
-      const r = sec.getBoundingClientRect();
-      const dist = Math.abs(r.top + r.height * 0.2 - innerHeight * 0.35);
-      if (dist < best) { best = dist; active = sec; }
-      sec.querySelectorAll(".chapter-body p, .highlight-line, .chapter-title").forEach((el) => {
-        if (el.getBoundingClientRect().top < innerHeight * 0.85) el.classList.add("is-on");
-      });
+    const cards = $$('.chapter', track);
+    const step = () => (cards[0] ? cards[0].offsetWidth + 24 : 400);
+
+    // arrows
+    const prev = $('#railPrev'), next = $('#railNext');
+    const nudge = d => rail.scrollBy({ left: d * step(), behavior: RM ? 'auto' : 'smooth' });
+    if (prev) prev.addEventListener('click', () => nudge(-1));
+    if (next) next.addEventListener('click', () => nudge(1));
+
+    // keyboard
+    rail.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight') { e.preventDefault(); nudge(1); }
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); nudge(-1); }
     });
-    if (active) {
-      setPose(active.dataset.pose || "wave");
-      dots.forEach((d) => d.classList.toggle("active", d.dataset.chapter === active.id));
-    }
-  };
 
-  muteBtn && muteBtn.addEventListener("click", () => {
-    muted = !muted;
-    setMuteUI();
-    if (muted) stopAmbient();
-    else { ensureAudio(); startAmbient(); showToast("Sound on"); }
-  });
-  woofBtn && woofBtn.addEventListener("click", woof);
-  const launchWoof = document.getElementById("launchWoof");
-  launchWoof && launchWoof.addEventListener("click", woof);
-
-  const copyCa = document.getElementById("copyCa");
-  copyCa && copyCa.addEventListener("click", async () => {
-    const v = (document.getElementById("caText") || {}).textContent || "TBA";
-    try {
-      await navigator.clipboard.writeText(v.trim());
-      showToast(v.trim() === "TBA" ? "CA still TBA" : "Copied");
-    } catch (e) { showToast("Copy failed"); }
-  });
-
-  const initGsap = () => {
-    if (!window.gsap || !window.ScrollTrigger) return;
-    gsap.registerPlugin(ScrollTrigger);
-    gsap.utils.toArray(".chapter-title, .display").forEach((el) => {
-      gsap.from(el, {
-        scrollTrigger: { trigger: el, start: "top 80%" },
-        y: 36, opacity: 0, duration: 0.75, ease: "power3.out",
-      });
+    // pointer drag (mouse — touch already scrolls natively)
+    let down = false, sx = 0, sl = 0, moved = 0;
+    rail.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'touch') return;
+      down = true; moved = 0; sx = e.clientX; sl = rail.scrollLeft;
+      rail.classList.add('dragging');
     });
-    gsap.to(".promo-peek", { y: -24, scrollTrigger: { trigger: "#intro", scrub: true } });
-    gsap.to("#stickyDog", { y: -36, scrollTrigger: { scrub: 0.35, trigger: "body" } });
-  };
+    rail.addEventListener('pointermove', e => {
+      if (!down) return;
+      const d = e.clientX - sx; moved = Math.abs(d);
+      rail.scrollLeft = sl - d;
+    });
+    const up = () => { if (!down) return; down = false; rail.classList.remove('dragging'); };
+    rail.addEventListener('pointerup', up);
+    rail.addEventListener('pointercancel', up);
+    rail.addEventListener('pointerleave', up);
+    rail.addEventListener('click', e => { if (moved > 6) { e.preventDefault(); e.stopPropagation(); } }, true);
 
-  let buf = "";
-  window.addEventListener("keydown", (e) => {
-    if (e.key.length !== 1) return;
-    buf = (buf + e.key.toUpperCase()).slice(-4);
-    if (buf === "ARCO") { muted = false; setMuteUI(); woof(); showToast("Good dog. $ARCO"); }
-  });
+    // progress + arrow state
+    const prog = $('#railProg');
+    function sync() {
+      const max = rail.scrollWidth - rail.clientWidth;
+      const p = max > 0 ? rail.scrollLeft / max : 0;
+      if (prog) prog.style.width = Math.max(12, (rail.clientWidth / rail.scrollWidth) * 100) + '%',
+                prog.style.transform = 'translateX(' + (p * (rail.clientWidth - prog.offsetWidth)) + 'px)';
+      if (prev) prev.disabled = rail.scrollLeft < 4;
+      if (next) next.disabled = rail.scrollLeft > max - 4;
+    }
+    rail.addEventListener('scroll', sync, { passive: true });
+    window.addEventListener('resize', sync);
+    setTimeout(sync, 60);
+  })();
 
-  setMuteUI();
-  updateCountdown();
-  setInterval(updateCountdown, 1000);
-  onScroll();
-  window.addEventListener("scroll", onScroll, { passive: true });
-  window.addEventListener("resize", onScroll);
-  window.addEventListener("load", initGsap);
-  if (document.readyState === "complete") initGsap();
+  /* ── 7. NFT PACK WALL ──────────────────────────────── */
+  (function packwall() {
+    const wall = $('#packWall');
+    if (!wall) return;
+    let html = '';
+    for (let i = 1; i <= 8; i++) {
+      const id = String(i).padStart(2, '0');
+      html += '<figure class="pcard" data-id="ARCO #' + id + '">' +
+              '<img src="assets/nfts/' + id + '.jpg" alt="Arco NFT ' + id + '" loading="lazy" width="560" height="560">' +
+              '</figure>';
+    }
+    // two teaser slots — the collection is 3,333, this is a taste
+    html += '<figure class="pcard pcard--ph">3,325 more<br>after the token</figure>';
+    html += '<figure class="pcard pcard--ph">Free mint<br>for $ARCO holders</figure>';
+    wall.innerHTML = html;
+  })();
+
+  /* ── 8. REVEALS ────────────────────────────────────── */
+  (function reveals() {
+    const els = $$('.reveal');
+    if (!('IntersectionObserver' in window) || RM) { els.forEach(e => e.classList.add('in')); return; }
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((en, i) => {
+        if (!en.isIntersecting) return;
+        setTimeout(() => en.target.classList.add('in'), i * 80);
+        io.unobserve(en.target);
+      });
+    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.08 });
+    els.forEach(e => io.observe(e));
+  })();
+
+  /* ── 9. PARALLAX (transform only, rAF-batched) ─────── */
+  (function parallax() {
+    if (RM) return;
+    const items = $$('[data-px]');
+    if (!items.length) return;
+    let y = window.scrollY, queued = false, mx = 0, my = 0;
+
+    const hero = $('.hero');
+    if (hero && window.matchMedia('(pointer:fine)').matches) {
+      hero.addEventListener('pointermove', e => {
+        const r = hero.getBoundingClientRect();
+        mx = (e.clientX - r.left) / r.width - .5;
+        my = (e.clientY - r.top) / r.height - .5;
+        req();
+      });
+      hero.addEventListener('pointerleave', () => { mx = my = 0; req(); });
+    }
+
+    function draw() {
+      queued = false;
+      items.forEach(el => {
+        const k = parseFloat(el.dataset.px) || 0;
+        const base = el.classList.contains('hero__dog') ? 'translateY(-50%) ' : '';
+        const isDog = el.classList.contains('hero__dog');
+        const tx = isDog ? mx * 26 : mx * 12;
+        const ty = y * k + (isDog ? my * 18 : my * 8);
+        el.style.transform = base + 'translate3d(' + tx.toFixed(2) + 'px,' + ty.toFixed(2) + 'px,0)' +
+                             (isDog ? ' rotate(' + (mx * 3).toFixed(2) + 'deg)' : '');
+      });
+    }
+    function req() { if (!queued) { queued = true; requestAnimationFrame(draw); } }
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > window.innerHeight * 1.4) return;   // hero only
+      y = window.scrollY; req();
+    }, { passive: true });
+    req();
+  })();
+
+  /* ── 10. FILM ──────────────────────────────────────── */
+  (function film() {
+    const v = $('#arcoVideo'), b = $('#filmPlay');
+    if (!v || !b) return;
+    b.addEventListener('click', () => {
+      v.preload = 'auto';
+      v.controls = true;            // only once it is actually playing
+      const p = v.play();
+      if (p && p.catch) p.catch(() => {});
+      b.classList.add('gone');
+    });
+    v.addEventListener('error', () => {
+      b.classList.add('gone');
+      v.closest('.filmwrap').innerHTML =
+        '<div class="ph ph--wide"><span>Arco film — assets/arco.mp4</span></div>';
+    });
+  })();
+
+  /* ── 11. THE BALL (fetch easter egg) ───────────────── */
+  (function fetchBall() {
+    const layer = $('#fetchLayer'), dog = $('#fetchDog'), ball = $('#fetchBall');
+    const btn = $('#ballBtn');
+    if (!layer || !dog || !ball) return;
+
+    const RUN = ['assets/sprites/run-1.png', 'assets/sprites/run-2.png',
+                 'assets/sprites/run-3.png', 'assets/sprites/run-4.png'];
+    RUN.forEach(s => { const i = new Image(); i.src = s; });   // warm the cache
+
+    // Measured transparent padding per frame. Normalising against it keeps his
+    // feet on one line and his size constant instead of bobbing frame to frame.
+    const MET = [{ t: .184, b: .225 }, { t: .181, b: .228 },
+                 { t: .156, b: .181 }, { t: .206, b: .244 }];
+    const PARTY = { t: .056, b: .113 };
+    const VIS = .60;                                    // target visible height
+    const REF = MET[0];
+    const refK = VIS / (1 - REF.t - REF.b), refB = REF.b * refK;
+
+    function pose(m, size, x, bob) {
+      const k = VIS / (1 - m.t - m.b);
+      const off = (m.b * k - refB) * size;
+      return 'translate3d(' + x.toFixed(1) + 'px,' + (bob + off).toFixed(1) + 'px,0) scale(' +
+             (-k).toFixed(3) + ',' + k.toFixed(3) + ')';
+    }
+
+    let busy = false;
+
+    function confettiAt(x) {
+      const colors = ['#C9F24D', '#6D4AE0', '#FF5FA2', '#22D3EE', '#FFFFFF'];
+      for (let i = 0; i < 16; i++) {
+        const p = document.createElement('i');
+        p.style.cssText = 'position:absolute;bottom:70px;left:' + x + 'px;width:9px;height:13px;border-radius:2px;' +
+          'background:' + colors[i % colors.length] + ';will-change:transform,opacity';
+        layer.appendChild(p);
+        p.animate([
+          { transform: 'translate(0,0) rotate(0deg)', opacity: 1 },
+          { transform: 'translate(' + (Math.random() * 220 - 110) + 'px,' + (-90 - Math.random() * 110) + 'px) rotate(' + (Math.random() * 620 - 310) + 'deg)', opacity: 1, offset: .55 },
+          { transform: 'translate(' + (Math.random() * 300 - 150) + 'px,90px) rotate(' + (Math.random() * 800 - 400) + 'deg)', opacity: 0 }
+        ], { duration: 1100 + Math.random() * 500, easing: 'cubic-bezier(.2,.7,.3,1)' })
+         .onfinish = () => p.remove();
+      }
+    }
+
+    function throwBall() {
+      if (busy) return;
+      busy = true;
+      layer.classList.add('live');
+      ball.classList.add('live');
+
+      const W = window.innerWidth;
+      const dogW = window.innerWidth < 860 ? 92 : 120;
+
+      // ball physics
+      let bx = 40, by = 60, vx = 7.5 + Math.random() * 4.5, vy = 13;
+      const g = 0.52, damp = 0.55;
+      // dog
+      let dx = -dogW - 40, frame = 0, ft = 0, caught = false, hold = 0, exiting = false;
+      const speed = 8.4;
+
+      if (RM) {   // reduced motion: skip the physics, just celebrate
+        ball.classList.remove('live');
+        dog.src = 'assets/sprites/party.png';
+        dog.style.transform = pose(PARTY, dogW, W * .5 - dogW / 2, 0);
+        confettiAt(W * .5);
+        done(1200);
+        return;
+      }
+
+      let raf, last = 0;
+      function loop(now) {
+        // delta-timed against 60fps — otherwise this whole cameo plays 2.5x
+        // too fast on a 144Hz display
+        if (!last) last = now;
+        const dt = Math.min(3, (now - last) / 16.6667) || 1;
+        last = now;
+        // --- ball ---
+        if (!caught) {
+          bx += vx * dt; by += vy * dt; vy -= g * dt;
+          if (by <= 0) {
+            by = 0; vy = Math.abs(vy) * damp; vx *= Math.pow(.82, dt);
+            if (vy < 1.6) { vy = 0; vx *= .7; }
+          }
+          if (bx > W - 60) { bx = W - 60; vx *= -.5; }
+          ball.style.transform = 'translate3d(' + bx + 'px,' + (-by) + 'px,0) rotate(' + (bx * 2.4) + 'deg)';
+        }
+
+        // --- dog ---
+        if (!caught) {
+          dx += speed * dt;
+          ft += dt;
+          const nf = Math.floor(ft / 5) % RUN.length;
+          if (nf !== frame) { frame = nf; dog.src = RUN[frame]; }
+          const bob = Math.sin(ft * .38) * 6;
+          dog.style.transform = pose(MET[frame], dogW, dx, bob);
+          if (dx + dogW * .78 >= bx) {
+            caught = true;
+            ball.classList.remove('live');
+            dog.src = 'assets/sprites/party.png';
+            dog.style.transform = pose(PARTY, dogW, dx, 0);
+            confettiAt(dx + dogW / 2);
+            registerFetch();
+          }
+        } else if (!exiting) {
+          hold += dt;
+          if (hold > 52) { exiting = true; ft = 0; }
+        } else {
+          dx += speed * 1.15 * dt;
+          ft += dt;
+          const nf2 = Math.floor(ft / 5) % RUN.length;
+          if (nf2 !== frame) { frame = nf2; dog.src = RUN[frame]; }
+          dog.style.transform = pose(MET[frame], dogW, dx, Math.sin(ft * .38) * 6);
+          if (dx > W + 40) { cancelAnimationFrame(raf); done(0); return; }
+        }
+        raf = requestAnimationFrame(loop);
+      }
+      raf = requestAnimationFrame(loop);
+    }
+
+    function done(delay) {
+      setTimeout(() => {
+        layer.classList.remove('live');
+        ball.classList.remove('live');
+        dog.src = RUN[0];
+        dog.style.transform = 'translateX(-160px)';
+        busy = false;
+      }, delay || 0);
+    }
+
+    function registerFetch() {
+      const n = store.get('fetches', 0) + 1;
+      store.set('fetches', n);
+      if (n === 1) toast('Good boy. (Press F to throw again)');
+      else if (n === 5 && document.documentElement.dataset.mode !== 'night') {
+        setTimeout(() => { setMode('night', false); toast('5 fetches. Night shift unlocked. 🌙'); }, 700);
+      } else if (n === 10) toast('Ten fetches. He would do this forever.');
+    }
+
+    if (btn) btn.addEventListener('click', throwBall);
+    window.addEventListener('keydown', e => {
+      if (e.key.toLowerCase() !== 'f') return;
+      const t = e.target.tagName;
+      if (t === 'INPUT' || t === 'TEXTAREA' || e.metaKey || e.ctrlKey) return;
+      throwBall();
+    });
+    window.ArcoFetch = throwBall;
+  })();
+
+  /* ── 12. LINKS FROM CONFIG ─────────────────────────── */
+  (function links() {
+    const map = { fX: SOCIAL.x, fTg: SOCIAL.telegram };
+    Object.keys(map).forEach(id => { const el = $('#' + id); if (el) el.href = map[id]; });
+    const s = $('#tSupply'); if (s) s.textContent = LAUNCH.supply;
+    const cd = $('#caDate'); if (cd) cd.textContent = LAUNCH.label.replace(' · 00:00 UTC', '');
+    const ca = $('#caText');
+    if (ca && LAUNCH.contract && LAUNCH.contract !== 'TBA') {
+      ca.textContent = LAUNCH.contract;
+      const cp = $('#caCopy');
+      if (cp) {
+        cp.disabled = false;
+        cp.addEventListener('click', () => {
+          navigator.clipboard.writeText(LAUNCH.contract)
+            .then(() => toast('Contract copied.'))
+            .catch(() => toast('Copy failed — select it manually.'));
+        });
+      }
+    }
+  })();
+
 })();
