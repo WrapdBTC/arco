@@ -159,9 +159,25 @@ the Tax card text lives in `index.html`, so change it in both places).
 ### Wallet step
 Validates `^0x[a-fA-F0-9]{40}$` with specific error messages (wrong prefix vs.
 wrong length vs. non-hex). **Connect** uses `window.ethereum` when a wallet
-extension is present and otherwise tells the user to paste an address. Nothing
-is ever transmitted — the address is stored in `localStorage` only. If you
-later want a real snapshot endpoint, that is the one place to add a `fetch`.
+extension is present and otherwise tells the user to paste an address.
+
+**Where the addresses go is controlled by `COLLECT` in `js/config.js`.** Leave
+`endpoint: 'TBA'` and nothing is transmitted — addresses stay in the visitor's
+own browser. Set it to your collector (see `server/`) and the site starts
+POSTing, gets the visitor's signup number back, and shows it as "You are #47 on
+the list" — that number is the FCFS order.
+
+The wallet step's description **rewrites itself** to match whichever is true, so
+the page never claims privacy it is not keeping. Keep it that way.
+
+Failed submissions are queued in `localStorage` and retried on the next visit,
+so an address is not silently lost when the endpoint is down.
+
+Note on `mode`: `'json'` talks to `server/collect.js`, can read the reply and
+therefore knows whether delivery worked. `'formdata'` is the fallback for
+endpoints that cannot send CORS headers — it uses `no-cors`, which means the
+browser returns an opaque response and **delivery cannot be verified**; a dead
+endpoint will still look like success. Prefer `'json'`.
 
 ---
 
@@ -179,8 +195,8 @@ assets/lore/01…05.jpg             one full-bleed scene per lore chapter
 assets/nfts/01…08.jpg             NFT wall (560px)
 assets/scenes/plate-day.jpg       hero parallax plate (no character, no text)
 assets/scenes/arco-wide.jpg       spare wide scene
-assets/arco.mp4  + video-poster.jpg      the site film   (3.1 MB)
 assets/nft-trailer.mp4 + nft-poster.jpg  NFT launch trailer (4.4 MB, 640×640, 10s)
+assets/arco.mp4  + video-poster.jpg      UNUSED — the film section was removed
 assets/posters/*.png              MARKETING ONLY — text baked in, never used as sprites
 ```
 
@@ -207,6 +223,13 @@ into `assets/posters/` so nobody accidentally uses them as a moving sprite.
 ### Not found on disk
 - `assets/memes/` — does not exist. The degen art is served by `assets/nfts/`,
   which covers the same ground. Nothing is broken by this.
+
+### Changed later
+- The **film section was removed** (`arco.mp4`). The files are still in
+  `assets/` in case it comes back; nothing references them.
+- Section padding was tightened from `clamp(80px,11vw,150px)` to
+  `clamp(62px,7.5vw,104px)` — the old rhythm read as dead space between
+  sections rather than breathing room.
 
 ### Changed after the first build
 - The 8 NFTs were replaced with the newer set; the two "3,325 more" filler

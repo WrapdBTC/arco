@@ -16,6 +16,61 @@
     del(k)    { try { localStorage.removeItem('arco.' + k); } catch (e) {} }
   };
 
+  /* ── where wallets go ──────────────────────────────────────
+     Nothing is transmitted unless COLLECT.endpoint is configured. The wallet
+     step's own description is rewritten to match whichever is true, so the
+     page never promises privacy it is not keeping. */
+  const collecting = typeof COLLECT !== 'undefined' && COLLECT.endpoint &&
+                     !/TBA/i.test(COLLECT.endpoint);
+
+  // json mode talks to server/collect.js and can read the reply, so we learn the
+  // real signup position. formdata mode is fire-and-forget: it works against
+  // endpoints that send no CORS headers, but delivery cannot be confirmed.
+  function submit(payload) {
+    if (!collecting) return Promise.resolve(null);
+    if (COLLECT.mode === 'json') {
+      return fetch(COLLECT.endpoint, {
+        method: 'POST', keepalive: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(r => r.json().catch(() => ({})).then(d => {
+        if (!r.ok || d.ok === false) throw new Error(d.error || ('http ' + r.status));
+        return d;
+      }));
+    }
+    const fd = new FormData();
+    Object.keys(payload).forEach(k => fd.append(k, payload[k]));
+    return fetch(COLLECT.endpoint, { method: 'POST', mode: 'no-cors', keepalive: true, body: fd })
+      .then(() => null);
+  }
+
+  // If a submission failed (offline, endpoint down) it is queued and retried
+  // on the next visit, so an address is not silently lost.
+  function queue(payload) {
+    const q = store.get('pending', []);
+    q.push(payload); store.set('pending', q.slice(-20));
+  }
+  function flushQueue() {
+    if (!collecting) return;
+    const q = store.get('pending', []);
+    if (!q.length) return;
+    store.set('pending', []);
+    q.forEach(p => submit(p)
+      .then(d => { if (d && d.position) { store.set('position', d.position); showPosition(d.position); } })
+      .catch(() => queue(p)));
+  }
+
+  // the signup number doubles as the FCFS spot, so it is worth showing off
+  function showPosition(n) {
+    const el = document.querySelector('#packId');
+    if (!el) return;
+    const row = el.closest('span');
+    if (row && !row.dataset.pos) {
+      row.dataset.pos = '1';
+      row.insertAdjacentHTML('afterend', '<span>List spot <code>#' + n + '</code></span>');
+    }
+  }
+
   const CORE = ['follow', 'like', 'retweet', 'wallet'];
   let done = store.get('steps', {});
   let wallet = store.get('wallet', '');
@@ -144,7 +199,19 @@
     msg.textContent = text;
     msg.className = 'wallet__msg' + (kind ? ' ' + kind : '');
   }
-  if (wallet) say('Saved locally: ' + short(wallet), 'ok');
+  if (wallet) say('Saved: ' + short(wallet), 'ok');
+
+  // keep the promise in the copy honest with what the code actually does
+  (function walletCopy() {
+    const p = document.querySelector('.step[data-step="wallet"] .step__b p');
+    if (!p) return;
+    p.textContent = collecting
+      ? 'For the NFT free mint snapshot later. Your address is submitted to the Arco list — nothing else about you is collected.'
+      : 'For the NFT free mint snapshot later. Stored in your browser only — nothing is sent anywhere.';
+  })();
+  flushQueue();
+  const savedPos = store.get('position', 0);
+  if (savedPos) showPosition(savedPos);
 
   function short(a) { return a.slice(0, 6) + '…' + a.slice(-4); }
 
@@ -163,8 +230,26 @@
       input.classList.remove('bad');
       wallet = v;
       store.set('wallet', v);
-      say('Saved locally: ' + short(v) + ' — nothing was sent anywhere.', 'ok');
       setDone('wallet', true);
+
+      if (!collecting) {
+        say('Saved: ' + short(v) + ' — kept in this browser only.', 'ok');
+      } else {
+        say('Sending ' + short(v) + '…');
+        const payload = {
+          wallet: v, packId: packId(), ts: new Date().toISOString(),
+          steps: CORE.filter(k => done[k]).join(','), best: store.get('best', 0)
+        };
+        submit(payload)
+          .then(d => {
+            if (d && d.position) {
+              store.set('position', d.position);
+              say('You are #' + d.position + ' on the list' + (d.already ? ' (already registered).' : '.'), 'ok');
+              showPosition(d.position);
+            } else say('Saved: ' + short(v) + ' — you are on the list.', 'ok');
+          })
+          .catch(() => { queue(payload); say('Saved: ' + short(v) + ' — could not reach the list, retrying next visit.', 'ok'); });
+      }
     });
   }
 
@@ -191,8 +276,19 @@
           input.value = a;
           wallet = a;
           store.set('wallet', a);
-          say('Connected: ' + short(a) + ' — stored in this browser only.', 'ok');
           setDone('wallet', true);
+          if (!collecting) say('Connected: ' + short(a) + ' — kept in this browser only.', 'ok');
+          else {
+            const payload = { wallet: a, packId: packId(), ts: new Date().toISOString(),
+                              steps: CORE.filter(k => done[k]).join(','), best: store.get('best', 0) };
+            submit(payload)
+              .then(d => {
+                if (d && d.position) { store.set('position', d.position); showPosition(d.position);
+                  say('You are #' + d.position + ' on the list.', 'ok'); }
+                else say('Connected: ' + short(a) + ' — you are on the list.', 'ok');
+              })
+              .catch(() => { queue(payload); say('Connected: ' + short(a) + ' — could not reach the list, retrying next visit.', 'ok'); });
+          }
         } else say('Could not read an address from that wallet.', 'bad');
       } catch (err) {
         say('Connection cancelled.', 'bad');

@@ -41,3 +41,14 @@ After keying, only the largest connected blob is kept — that removes detached
 ground shadows and speckles without touching the character. Shadows that are
 *attached* to him, or enclosed white regions, still survive; two of the fifteen
 source frames had that and were simply left out of the cycle.
+
+
+## A trap worth remembering
+
+`CGImage.cropping(to:)` works in the image's own **top-left** coordinate space.
+The drawing context uses **bottom-left**. Flipping the y for both — which is the
+obvious mistake — silently crops the wrong band: content that is not vertically
+centred in the source loses the top of its head and gains empty space at the
+bottom. That is exactly what happened to the dark hero (43px off, sliced right
+through his skull) and it is invisible until you look at the sprite on a dark
+background.

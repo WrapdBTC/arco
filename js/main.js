@@ -292,7 +292,6 @@
         if (host) host.innerHTML = '<div class="ph ' + phClass + '"><span>' + phLabel + '</span></div>';
       });
     }
-    wire('#arcoVideo', '#filmPlay', 'Arco film — assets/arco.mp4', 'ph--wide');
     wire('#nftVideo', '#nftPlay', 'NFT trailer — assets/nft-trailer.mp4', 'ph--square');
   })();
 

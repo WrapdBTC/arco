@@ -21,6 +21,24 @@ const SOCIAL = {
   buy: 'TBA'
 };
 
+/* ---- COLLECT: where submitted wallets go -------------------------------
+   Leave the endpoint as 'TBA' and nothing is ever transmitted — addresses stay
+   in the visitor's own browser and the UI says so.
+   Set a real URL and the site starts POSTing to it, and the wallet step's copy
+   changes automatically to tell people their address is submitted.
+   Keep those two in sync: never collect while the page claims it does not.  */
+const COLLECT = {
+  // Your own VPS running server/collect.js, e.g. 'https://api.arco.dog/collect'.
+  // MUST be https — the site is served over https and browsers block mixed content.
+  endpoint: 'TBA',
+
+  // 'json' talks to server/collect.js and can READ the reply, so the visitor
+  // gets their real signup number back (useful for a FCFS list).
+  // 'formdata' is the fire-and-forget fallback for endpoints that cannot send
+  // CORS headers — it works, but delivery cannot be confirmed.
+  mode: 'json'
+};
+
 /* ---- LAUNCH ---- */
 const LAUNCH = {
   iso: '2026-09-16T00:00:00Z',

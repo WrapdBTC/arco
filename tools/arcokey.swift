@@ -143,9 +143,11 @@ func writePNG(_ frame: Frame, bbox: (Int, Int, Int, Int), scale: Double,
     let dx = cx * Double(outSize) - dw / 2.0
     let dyTop = cy * Double(outSize) - dh / 2.0
     let dy = Double(outSize) - dyTop - dh      // CG origin is bottom-left
-    // CG origin is bottom-left; our bbox y is top-down
-    let flippedY = frame.h - by - bh
-    out.draw(srcImg.cropping(to: CGRect(x: bx, y: flippedY, width: bw, height: bh))!,
+    // NOTE: CGImage.cropping(to:) works in the image's own top-left coordinate
+    // space, so the bbox y is used as-is here. Only the *destination* rect below
+    // needs the bottom-left flip (done in `dy`). Flipping both cuts the top off
+    // whenever the content is not vertically centred in the source.
+    out.draw(srcImg.cropping(to: CGRect(x: bx, y: by, width: bw, height: bh))!,
              in: CGRect(x: dx, y: dy, width: dw, height: dh))
 
     guard let img = out.makeImage() else { return }
